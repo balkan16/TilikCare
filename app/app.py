@@ -19,7 +19,7 @@ from databricks.sdk.core import Config
 from streamlit_folium import st_folium
 from streamlit_searchbox import st_searchbox
 
-st.set_page_config(page_title="TilikCare: Find Care with Evidence", layout="wide")
+st.set_page_config(page_title="TilikCare: Find Care with Evidence", layout="wide", initial_sidebar_state="collapsed")
 
 SCHEMA = "workspace.carematch"
 SERVICES = ["Dialysis", "Emergency C-section", "NICU", "Cardiac surgery", "MRI", "Burn care"]
@@ -32,12 +32,24 @@ SERVICE_REFS = {
     "Burn care": ("WHO fact sheet", "https://www.who.int/news-room/fact-sheets/detail/burns"),
 }
 INDIA_CENTER = (22.5, 79.0)
+# Words that show an item is about the service (for highlighting evidence in the record's lists; display only)
+SERVICE_TERMS = {
+    "Dialysis": r"dialysis|hemodialysis|haemodialysis|capd|nephrolog|kidney|renal",
+    "Emergency C-section": r"caesarean|cesarean|c-section|c section|lscs|obstetric",
+    "NICU": r"nicu|neonat|newborn|sncu|incubator",
+    "Cardiac surgery": r"cardiac surg|cabg|cardiothoracic|ctvs|open heart|bypass|valve|heart surgery|heart-lung",
+    "MRI": r"\bmri\b|magnetic resonance|tesla",
+    "Burn care": r"\bburns?\b",
+}
+# Keep every map on India: cannot pan outside this box or zoom out past the whole country.
+INDIA_MAP = dict(min_zoom=4, max_bounds=True, min_lat=5.0, max_lat=38.0, min_lon=67.0, max_lon=98.5)
 COORD_RE = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)\s*$")
 
 # --------------------------------------------------------------------------------------
 # Data access
 # --------------------------------------------------------------------------------------
-cfg = Config()  # picks up the app's service principal credentials automatically
+MOCK = os.getenv("CAREMATCH_MOCK") == "1"  # local UI work with invented sample data, no Databricks
+cfg = None if MOCK else Config()  # picks up the app's service principal credentials automatically
 
 
 @st.cache_resource(show_spinner=False)
@@ -65,6 +77,10 @@ def run_query(query: str, params: dict | None = None) -> pd.DataFrame:
         with conn.cursor() as cur:
             cur.execute(query, params or {})
             return cur.fetchall_arrow().to_pandas()
+
+
+if MOCK:
+    from mock_backend import run_query  # noqa: F811  (replaces the Databricks version above)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -376,7 +392,7 @@ def region_of(lon: float, lat: float, index) -> int | None:
 @st.cache_data(ttl=3600, show_spinner=False)
 def service_points(service: str) -> pd.DataFrame:
     return run_query(
-        f"SELECT DISTINCT c.facility_id, c.latitude, c.longitude FROM {SCHEMA}.service_candidates c "
+        f"SELECT DISTINCT c.facility_id, c.facility_name, c.latitude, c.longitude FROM {SCHEMA}.service_candidates c "
         f"LEFT JOIN {SCHEMA}.candidate_verification cv ON cv.source_record_id = c.source_record_id "
         f"AND cv.requested_service = c.requested_service "
         f"WHERE c.requested_service = :s AND coalesce(cv.status, 'offered') NOT IN ('not_offered', 'planned') "
@@ -487,341 +503,6 @@ def strength_color(score: int) -> str:
     return "gray"
 
 
-# --------------------------------------------------------------------------------------
-# Header
-# --------------------------------------------------------------------------------------
-st.markdown(
-    "<style>"
-    ".tc-hero{background:linear-gradient(135deg,#0f766e 0%,#1e3a8a 100%);border-radius:14px;"
-    "padding:18px 24px;margin:0 0 10px 0;box-shadow:0 2px 10px rgba(0,0,0,0.15)}"
-    ".tc-name{font-size:2.3rem;font-weight:700;color:#ffffff;letter-spacing:0.5px;line-height:1.2}"
-    ".tc-tag{font-size:1.05rem;color:#ccfbf1;margin-top:4px}"
-    "</style>"
-    "<div class='tc-hero'>"
-    "<div class='tc-name'>TilikCare</div>"
-    "<div class='tc-tag'>Find care, with the evidence behind it</div>"
-    "</div>",
-    unsafe_allow_html=True,
-)
-st.caption(
-    "Results are text matches from facility records, not verified service availability. "
-    "Distance is straight-line, not road distance. Always call ahead. This tool does not diagnose."
-)
-
-# --------------------------------------------------------------------------------------
-# 1. What care is needed
-# --------------------------------------------------------------------------------------
-st.subheader("1. What care is needed?")
-
-
-def search_services(term: str):
-    term = (term or "").strip()
-    if not term:
-        return [(s, s) for s in SERVICES]
-    t = term.lower()
-    matches = [(s, s) for s in SERVICES if t in s.lower()]
-    if term.lower() not in [s.lower() for s in SERVICES]:
-        matches.append((f'Describe the case: "{term}"', term))
-    return matches
-
-
-@st.fragment
-def service_picker():
-    # Typing only reruns this fragment; the full page reruns once a value is chosen.
-    value = st_searchbox(
-        search_services,
-        key="service_box",
-        placeholder="Type a service (e.g. dial...) or describe the case in your own words",
-        default_options=[(s, s) for s in SERVICES],
-        clear_on_submit=False,
-        rerun_scope="fragment",
-        debounce=300,
-    )
-    if value != st.session_state.get("service_text"):
-        st.session_state["service_text"] = value
-        st.rerun(scope="app")
-
-
-service_picker()
-service_text = st.session_state.get("service_text")
-
-chosen_service = None
-if service_text:
-    with st.spinner("Reading your request..."):
-        sugg = suggest_services(service_text)
-    valid = sugg[sugg["service"].notna()]
-    if valid.empty:
-        st.warning(sugg["selection_note"].iloc[0] if len(sugg) else "No supported service matched.")
-    else:
-        override = st.session_state.get("service_override", {}).get(service_text)
-        auto = valid[valid["is_selected"]]
-        chosen_service = override or (auto["service"].iloc[0] if not auto.empty else None)
-
-        with st.container(border=True):
-            st.markdown("**How we read your request**")
-            for _, r in valid.iterrows():
-                c1, c2, c3 = st.columns([3, 6, 2])
-                ref = SERVICE_REFS.get(r["service"])
-                link = f" [:material/open_in_new:]({ref[1]})" if ref else ""
-                about = f" | Reference: {ref[0]}" if ref else ""
-                c1.markdown(f"**{r['service']}**{link}  \nLevel: {r['level']}{about}")
-                c2.caption(f"{r['reason']}  \n{r['method']}")
-                is_current = r["service"] == chosen_service
-                if c3.button(
-                    "Selected" if is_current else "Use this",
-                    key=f"use_{r['service']}",
-                    disabled=is_current,
-                    use_container_width=True,
-                ):
-                    st.session_state.setdefault("service_override", {})[service_text] = r["service"]
-                    st.rerun()
-            if chosen_service:
-                st.success(f"Selected: {chosen_service}")
-            else:
-                st.info("Not confident enough to choose. Pick one of the suggestions above.")
-
-# --------------------------------------------------------------------------------------
-# 2. Where is the patient
-# --------------------------------------------------------------------------------------
-st.subheader("2. Where is the patient?")
-mode = st.radio(
-    "Set the location by",
-    ["Search a place", "Paste coordinates", "Drop a pin on the map"],
-    horizontal=True,
-    label_visibility="collapsed",
-)
-
-location_text, coords_text, origin = "none", "none", None
-
-if mode == "Search a place":
-    def search_places(term: str):
-        term = (term or "").strip().lower()
-        if len(term) < 2:
-            return []
-        opts = location_options()
-        starts = [o for o in opts if term in o.lower().split("|", 1)[-1].strip().lower()[: len(term)]]
-        contains = [o for o in opts if term in o.lower() and o not in starts]
-        return (starts + contains)[:25]
-
-    @st.fragment
-    def place_picker():
-        value = st_searchbox(
-            search_places,
-            key="place_box",
-            placeholder="Type a city or PIN code, e.g. ahmed or 380001",
-            clear_on_submit=False,
-            rerun_scope="fragment",
-            debounce=300,
-        )
-        if value != st.session_state.get("place_text"):
-            st.session_state["place_text"] = value
-            st.rerun(scope="app")
-
-    place_picker()
-    place = st.session_state.get("place_text")
-    if place:
-        location_text = place
-        loc = resolve_location(place)
-        if not loc.empty:
-            r = loc.iloc[0]
-            if pd.notna(r["origin_latitude"]):
-                origin = (float(r["origin_latitude"]), float(r["origin_longitude"]))
-                st.caption(f"{r['location_note']} ({r['origin_precision']})")
-            else:
-                st.warning(r["location_note"])
-
-elif mode == "Paste coordinates":
-    raw = st.text_input("Coordinates (lat, long)", placeholder="23.0225, 72.5714")
-    if raw:
-        parsed = parse_coords(raw)
-        if parsed:
-            origin = parsed
-            coords_text = f"{parsed[0]}, {parsed[1]}"
-            st.caption("Distances are measured from these exact coordinates.")
-        else:
-            st.warning("Could not read these coordinates, or they are outside India. Use the format: 23.0225, 72.5714")
-
-else:
-    pin = st.session_state.get("pin")
-    pin_map = folium.Map(location=pin or INDIA_CENTER, zoom_start=11 if pin else 5, control_scale=True)
-    if pin:
-        folium.Marker(pin, tooltip="Patient location", icon=folium.Icon(color="blue", icon="user")).add_to(pin_map)
-    st.caption("Click on the map to place the patient's location.")
-    out = st_folium(pin_map, height=380, use_container_width=True, key="pin_map", returned_objects=["last_clicked"], center=pin or INDIA_CENTER, zoom=11 if pin else 5)
-    if out and out.get("last_clicked"):
-        new_pin = (round(out["last_clicked"]["lat"], 5), round(out["last_clicked"]["lng"], 5))
-        if new_pin != pin:
-            st.session_state["pin"] = new_pin
-            st.rerun()
-    if pin:
-        if parse_coords(f"{pin[0]}, {pin[1]}"):
-            origin = pin
-            coords_text = f"{pin[0]}, {pin[1]}"
-            st.caption(f"Pin: {pin[0]}, {pin[1]}. Distances are measured from this point.")
-        else:
-            st.warning("The pin is outside India. Place it inside India.")
-
-# --------------------------------------------------------------------------------------
-# 3. Results
-# --------------------------------------------------------------------------------------
-if not chosen_service or origin is None:
-    st.info("Next: choose where the patient is (step 2) to see nearby options." if chosen_service else "Choose the care needed and the patient's location to see nearby options.")
-    st.stop()
-
-with st.spinner("Finding nearby options... The first search can take up to 30 seconds."):
-    results = find_care(chosen_service, location_text, coords_text)
-
-if results.empty:
-    st.warning(
-        "No sufficiently supported candidates found for this search. "
-        "This does not mean no care exists in the area; the records may not mention this service."
-    )
-    st.stop()
-
-st.subheader("3. Nearby options")
-order = st.radio(
-    "Order results by",
-    ["Nearest first", "Stronger evidence first"],
-    horizontal=True,
-    help="Stronger evidence first: facilities scoring 3/5 or more come first, each group ordered by distance. "
-    "Only the 20 nearest candidates are considered either way.",
-)
-if order == "Stronger evidence first":
-    results = results.assign(_g=(results["evidence_strength"] < 3).astype(int)).sort_values(["_g", "distance_km"])
-else:
-    results = results.sort_values("distance_km")
-results = results.reset_index(drop=True)
-results["display_rank"] = range(1, len(results) + 1)
-
-selected_id = st.session_state.get("selected_record")
-if selected_id not in set(results["source_record_id"]):
-    selected_id = None
-
-map_col, card_col = st.columns([3, 2], gap="medium")
-
-with map_col:
-    m = folium.Map(location=origin, zoom_start=11, control_scale=True)
-    add_region_layer(m, chosen_service)
-    folium.Marker(origin, tooltip="Patient location", icon=folium.Icon(color="blue", icon="user")).add_to(m)
-    for _, r in results.iterrows():
-        popup = (
-            f"<b>#{r['display_rank']} {html.escape(str(r['facility_name']))}</b><br>"
-            f"{html.escape(str(r['full_address'] or ''))}<br>"
-            f"{html.escape(str(r['distance_label']))}<br>"
-            f"Evidence {r['evidence_strength']}/5 ({html.escape(str(r['strength_label']))})<br>"
-            f"Mentioned in: {html.escape(str(r['evidence_fields'] or 'n/a'))}"
-        )
-        folium.CircleMarker(
-            location=(r["latitude"], r["longitude"]),
-            radius=9 if r["source_record_id"] == selected_id else 7,
-            color=strength_color(int(r["evidence_strength"])),
-            fill=True,
-            fill_opacity=0.85,
-            tooltip=f"#{r['display_rank']} {r['facility_name']}",
-            popup=folium.Popup(popup, max_width=320),
-        ).add_to(m)
-    bounds = [origin] + list(zip(results["latitude"], results["longitude"]))
-    m.fit_bounds(bounds, padding=(20, 20))
-    st.caption("Marker colour: green 4-5/5, orange 2-3/5, grey 0-1/5 evidence. Click a marker, a table row, or use the picker to show details.")
-    map_out = st_folium(
-        m, height=470, use_container_width=True, key="result_map", returned_objects=["last_object_clicked_tooltip"]
-    )
-    tip = (map_out or {}).get("last_object_clicked_tooltip")
-    if tip and tip != st.session_state.get("last_marker_tip"):
-        st.session_state["last_marker_tip"] = tip
-        hit = re.match(r"\s*#(\d+) ", str(tip))
-        if hit:
-            match = results[results["display_rank"] == int(hit.group(1))]
-            if not match.empty:
-                st.session_state["selected_record"] = match["source_record_id"].iloc[0]
-                st.rerun()
-
-with card_col:
-    labels = ["Highest suggested facility"] + [
-        f"#{r['display_rank']} {r['facility_name']}" for _, r in results.iterrows()
-    ]
-    ids = [None] + results["source_record_id"].tolist()
-    current = ids.index(selected_id) if selected_id in ids else 0
-    pick = st.selectbox("Show in the card", labels, index=current)
-    if ids[labels.index(pick)] != selected_id:
-        st.session_state["selected_record"] = ids[labels.index(pick)]
-        st.rerun()
-    if selected_id:
-        row = results[results["source_record_id"] == selected_id].iloc[0]
-        heading = "Selected facility"
-    else:
-        row = results.iloc[0]
-        heading = "Highest Suggested Facility"
-    with st.container(border=True):
-        st.markdown(f"#### {heading}")
-        st.markdown(f"### {row['facility_name']}")
-        st.markdown(f"{row['full_address'] or 'Address not listed'}")
-        c1, c2 = st.columns(2)
-        c1.metric("Distance", f"{row['distance_km']:.1f} km", help="Straight-line, not road distance")
-        c2.metric("Evidence", f"{int(row['evidence_strength'])}/5", help=row["strength_label"])
-        extras = {}
-        try:
-            extras = facility_extras(str(row["source_record_id"]))
-        except Exception:
-            st.caption("Extra facility details could not be loaded right now.")
-        card_css()
-        st.markdown("**Evidence breakdown**")
-        plus, minus = split_points(row["strength_breakdown"], row["caution_flags"])
-        evidence_columns(plus, minus)
-        url = first_url(row["website"])
-        email = first_email(extras.get("email"))
-        phone = clean_text(row["phone"])
-        b1, b2, b3 = st.columns(3)
-        with b1:
-            st.link_button("Website", url or "https://", disabled=url is None, use_container_width=True)
-        with b2:
-            st.link_button("Email", f"mailto:{email}" if email else "https://", disabled=email is None, use_container_width=True)
-        with b3:
-            copy_button(phone, "Copy phone", key=f"copy_{row['source_record_id']}")
-        contact = [x for x in (phone and f"Phone: {phone}", email and f"Email: {email}") if x]
-        if contact:
-            st.caption(" | ".join(contact))
-        if selected_id and st.button("Back to highest suggested", use_container_width=True):
-            st.session_state["selected_record"] = None
-            st.session_state["last_marker_tip"] = None
-            st.rerun()
-
-with map_col:
-    with st.container(border=True):
-        st.markdown(f"**Why {row['facility_name']}**")
-        st.caption(f"#{int(row['nearest_rank'])} nearest, {row['distance_label']}. Text match, not verified. Call ahead to confirm.")
-        why_fields(extras, chosen_service, str(row["source_record_id"]))
-        quote = clean_text(row["evidence_quote"])
-        if quote:
-            src = first_url(row["source_url"])
-            more = "..." if len(quote) > 300 else ""
-            link = f" [source]({src})" if src else ""
-            st.caption(f'Source text: "{quote[:300]}{more}"{link}')
-
-st.markdown("**All nearby options** (select a row to show it in the card)")
-table = results[["display_rank", "facility_name", "distance_km", "evidence_strength", "strength_label", "why_this"]]
-event = st.dataframe(
-    table,
-    hide_index=True,
-    use_container_width=True,
-    on_select="rerun",
-    selection_mode="single-row",
-    column_config={
-        "display_rank": st.column_config.NumberColumn("#", width="small"),
-        "facility_name": st.column_config.TextColumn("Facility", width="medium"),
-        "distance_km": st.column_config.NumberColumn("Distance (km, straight-line)", format="%.1f"),
-        "evidence_strength": st.column_config.ProgressColumn("Evidence", min_value=0, max_value=5, format="%d/5"),
-        "strength_label": st.column_config.TextColumn("Evidence level"),
-        "why_this": st.column_config.TextColumn("Why", width="large"),
-    },
-    key="results_table",
-)
-rows = list(event.selection.rows) if event and hasattr(event, "selection") else []
-if rows != st.session_state.get("last_table_rows", []):
-    st.session_state["last_table_rows"] = rows
-    if rows:
-        st.session_state["selected_record"] = results.iloc[rows[0]]["source_record_id"]
-        st.rerun()
 
 RANKING_EXPLAINER = """
 **In short:** TilikCare lists the 20 nearest facilities whose records mention the service, and shows how strongly
@@ -856,7 +537,8 @@ In a life-threatening emergency, call 108 (ambulance in most Indian states) firs
 - The patient's location is your pin or pasted coordinates (exact), a PIN code centre, or for a city an
   approximate centre (the median of PIN centres in that district). The note under step 2 says which.
 - Straight-line distance is not road distance or travel time: water, hills and traffic can make a near facility
-  slow to reach.
+  slow to reach. For the selected facility the details also show the road distance and an estimated drive time
+  (OpenStreetMap roads, no traffic), and a button opens the route in Google Maps.
 - "Stronger evidence first" re-orders the same 20: facilities scoring 3/5 or more come first, each group by distance.
 
 #### 5. What the evidence score means (0 to 5)
@@ -890,8 +572,260 @@ green box lists the points earned; the red box lists points not earned, deductio
 
 #### 7. What TilikCare does not know
 Current availability, free beds, waiting time, cost, insurance or government-scheme acceptance, quality of care,
-and travel time. Confirm these by phone before moving a patient.
+and live traffic. Confirm these by phone before moving a patient.
 """
 
-with st.expander("How the ranking works, and what to trust"):
-    st.markdown(RANKING_EXPLAINER)
+# --------------------------------------------------------------------------------------
+# Routing (selected facility only). OpenRouteService if ORS_API_KEY is set, else the
+# public OSRM demo server. Both use OpenStreetMap roads; no traffic. Fails quietly.
+# --------------------------------------------------------------------------------------
+import time
+import urllib.request
+
+ORS_API_KEY = os.getenv("ORS_API_KEY", "")
+
+
+@st.cache_data(ttl=24 * 3600, show_spinner=False)
+def road_route(o_lat: float, o_lon: float, d_lat: float, d_lon: float) -> dict | None:
+    """Returns {"coords": [[lat, lon], ...], "km": float, "min": float, "provider": str} or None."""
+    try:
+        if ORS_API_KEY:
+            req = urllib.request.Request(
+                "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
+                data=json.dumps({"coordinates": [[o_lon, o_lat], [d_lon, d_lat]]}).encode(),
+                headers={"Authorization": ORS_API_KEY, "Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=8) as r:
+                feat = json.loads(r.read())["features"][0]
+            summ = feat["properties"]["summary"]
+            coords, km, mins, provider = feat["geometry"]["coordinates"], summ["distance"] / 1000, summ["duration"] / 60, "OpenRouteService"
+        else:
+            url = (f"https://router.project-osrm.org/route/v1/driving/{o_lon},{o_lat};{d_lon},{d_lat}"
+                   "?overview=full&geometries=geojson")
+            req = urllib.request.Request(url, headers={"User-Agent": "TilikCare-datathon"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                route = json.loads(r.read())["routes"][0]
+            coords, km, mins, provider = route["geometry"]["coordinates"], route["distance"] / 1000, route["duration"] / 60, "OSRM demo"
+        return {"coords": [[c[1], c[0]] for c in coords], "km": km, "min": mins, "provider": provider}
+    except Exception:
+        return None
+
+
+# Cards + map in one custom component, so hovering a card highlights its map pin (and back) in the browser.
+tilik_map = components.declare_component("tilik_map", path=os.path.join(APP_DIR, "tilik_map"))
+
+# --------------------------------------------------------------------------------------
+# Page frame. The search bar, filters, cards and map all live in the tilik_map component.
+# --------------------------------------------------------------------------------------
+st.markdown(
+    "<style>"
+    "header[data-testid='stHeader']{background:transparent;height:0}"
+    "div.block-container{padding:0.4rem 1.2rem 0 1.2rem;max-width:100%}"
+    "[data-testid='stSidebar'],[data-testid='stSidebarCollapsedControl']{display:none}"
+    "div[data-testid='stPopover'] button{border-radius:999px;padding:2px 12px;min-height:0}"
+    "</style>",
+    unsafe_allow_html=True,
+)
+# Landing page first; "Open Dashboard" links to ?view=dashboard
+if st.query_params.get("view") != "dashboard":
+    from landing import render_landing
+    render_landing()
+    st.stop()
+
+COORD_KEY = "coords:"
+ss = st.session_state
+filters = ss.setdefault("filters", {"min_ev": 0, "max_km": 300, "order": "near", "hide_unclear": False})
+min_ev, max_km, hide_unclear = filters["min_ev"], filters["max_km"], filters["hide_unclear"]
+order = "Stronger evidence first" if filters["order"] == "ev" else "Nearest first"
+
+# Thin notice strip above the app
+n1, n2 = st.columns([6, 1.3], vertical_alignment="center")
+with n1:
+    st.caption((":red[**MOCK MODE:** invented sample facilities, not real data.] " if MOCK else "") +
+               "Text matches from facility records, not verified availability. Always call ahead. "
+               "Does not diagnose. Emergency: call **108**.")
+with n2:
+    with st.popover("How the ranking works", icon=":material/help:", use_container_width=True):
+        st.markdown(RANKING_EXPLAINER)
+
+# ---------------------------------- Interpret the need ------------------------------
+chosen_service, read, notes = None, None, []
+service_text = ss.get("service_text")
+if service_text:
+    sugg = suggest_services(service_text)
+    valid = sugg[sugg["service"].notna()]
+    if valid.empty:
+        notes.append(sugg["selection_note"].iloc[0] if len(sugg) else "No supported service matched.")
+    else:
+        override = ss.get("service_override", {}).get(service_text)
+        auto = valid[valid["is_selected"]]
+        chosen_service = override or (auto["service"].iloc[0] if not auto.empty else None)
+        chosen_row = valid[valid["service"] == chosen_service]
+        method = chosen_row["method"].iloc[0] if not chosen_row.empty else ""
+        read = {"chosen": chosen_service,
+                "method": ("chosen by you" if override else
+                           "matched by name" if "name" in str(method).lower() else
+                           "matched by meaning" if "meaning" in str(method).lower() or "embedding" in str(method).lower() else
+                           "interpreted by AI (Llama 3.3), not a diagnosis"),
+                "options": [{"service": r["service"], "level": str(r["level"]), "reason": clean_text(r["reason"])}
+                            for _, r in valid.iterrows()]}
+
+# ---------------------------------- Resolve the location ----------------------------
+location_text, coords_text, origin, place_note = "none", "none", None, ""
+place = ss.get("place_text")
+if place and place.startswith(COORD_KEY):
+    lat, lon = (float(x) for x in place[len(COORD_KEY):].split(","))
+    if parse_coords(f"{lat}, {lon}"):
+        origin, coords_text = (lat, lon), f"{lat}, {lon}"
+        place_note = ss.get("place_label") or f"{lat}, {lon}"
+    else:
+        notes.append("These coordinates are outside India.")
+elif place:
+    location_text = place
+    loc = resolve_location(place)
+    if not loc.empty and pd.notna(loc.iloc[0]["origin_latitude"]):
+        r = loc.iloc[0]
+        origin = (float(r["origin_latitude"]), float(r["origin_longitude"]))
+        place_note = place.split("|", 1)[-1].strip()
+    elif not loc.empty:
+        notes.append(loc.iloc[0]["location_note"])
+
+# ---------------------------------- Search + filters --------------------------------
+results = pd.DataFrame()
+if chosen_service and origin is not None:
+    results = find_care(chosen_service, location_text, coords_text)
+    if not results.empty:
+        results = results[(results["evidence_strength"] >= min_ev) & (results["distance_km"] <= max_km)]
+        if hide_unclear:
+            results = results[~results["caution_flags"].fillna("").str.contains("AI check", case=False)]
+        if order == "Stronger evidence first":
+            results = results.assign(_g=(results["evidence_strength"] < 3).astype(int)).sort_values(["_g", "distance_km"])
+        else:
+            results = results.sort_values("distance_km")
+        results = results.reset_index(drop=True)
+        results["display_rank"] = range(1, len(results) + 1)
+
+ids = set(results["source_record_id"]) if not results.empty else set()
+selected_id = st.session_state.get("selected_record")
+if selected_id not in ids:
+    selected_id = None
+
+cards = []
+for _, r in results.iterrows():
+    plus, minus = split_points(r["strength_breakdown"], r["caution_flags"])
+    cards.append({
+        "id": str(r["source_record_id"]), "rank": int(r["display_rank"]), "name": str(r["facility_name"]),
+        "address": clean_text(r["full_address"]), "lat": float(r["latitude"]), "lon": float(r["longitude"]),
+        "km": float(r["distance_km"]), "ev": int(r["evidence_strength"]), "label": clean_text(r["strength_label"]) or "",
+        "quote": (clean_text(r["evidence_quote"]) or "")[:300] or None, "source": first_url(r["source_url"]),
+        "phone": clean_text(r["phone"]), "website": first_url(r["website"]), "caution": clean_text(r["caution_flags"]),
+        "why": clean_text(r["why_this"]), "plus": plus, "minus": minus, "fields": clean_text(r["evidence_fields"]),
+    })
+
+detail, route = None, None
+if selected_id:
+    row = results[results["source_record_id"] == selected_id].iloc[0]
+    route = road_route(origin[0], origin[1], float(row["latitude"]), float(row["longitude"]))
+    extras = {}
+    try:
+        extras = facility_extras(str(selected_id))
+    except Exception:
+        pass
+    detail = {"id": str(selected_id), "route": route, "email": first_email(extras.get("email")),
+              "specialties": parse_list(extras.get("specialties")), "procedures": parse_list(extras.get("procedure")),
+              "equipment": parse_list(extras.get("equipment"))}
+
+# Region shading and facility dots for the chosen service (before a search, and as context)
+state_counts = district_counts = None
+points = []
+if chosen_service:
+    try:
+        state_counts = {str(k): v for k, v in region_counts(chosen_service, "state").items()}
+        district_counts = {str(k): v for k, v in region_counts(chosen_service, "district").items()}
+        sp = service_points(chosen_service)
+        points = [[float(a), float(b), str(n)] for a, b, n in zip(sp["latitude"], sp["longitude"], sp["facility_name"])][:3000]
+    except Exception:
+        pass
+
+if not chosen_service and origin is not None:
+    title, empty_html = f"Patient location set: {place_note}", (
+        "<b>Now choose the care needed</b> in <b>What care</b> at the top (for example Dialysis, MRI, NICU), "
+        "or describe the case in your own words. The nearby options will appear here.<br><br>"
+        "Nothing is listed yet because the options depend on the service: a facility that does MRI may not do dialysis.")
+elif not chosen_service:
+    title, empty_html = "Find care near the patient", (
+        "<b>1.</b> Type the care needed above (a service, or describe the case in your own words).<br>"
+        "<b>2.</b> Type a place, PIN or coordinates in <b>Where</b>, choose <b>Nearby</b>, or <b>right-click the map</b> to drop the patient pin.<br><br>"
+        "Explore the map: click a state to see its districts.")
+elif origin is None:
+    title, empty_html = f"{chosen_service}: where is the patient?", (
+        "Type a place, PIN or coordinates in <b>Where</b>, choose <b>Nearby</b> to use your location, or "
+        "<b>right-click the map</b> to drop the patient pin.<br><br>"
+        "Shading shows how many facility records mention this service. Click a state, then a district, to see the "
+        "facilities as dots.")
+elif results.empty:
+    title, empty_html = f"No {chosen_service.lower()} options found", (
+        "No sufficiently supported candidates match this search and these filters. This does not mean no care exists "
+        "in the area; the records may not mention this service. Try loosening the filters.")
+else:
+    title, empty_html = f"{len(results)} {chosen_service.lower()} options near {place_note}", ""
+
+# Places for the "Where" dropdown: city names (PINs and coordinates are recognised when typed in full)
+try:
+    city_labels = [o for o in location_options() if o.startswith("City |")]
+except Exception:
+    city_labels = []
+ui = {"need_text": service_text or "", "need_value": service_text,
+      "where_text": ss.get("place_label") or ((place or "").split("|", 1)[-1].strip() if place else ""), "where_value": place}
+
+# Mock mode: open on the sample-data area and mark where the invented hospitals and cities are
+demo = None
+if MOCK:
+    import mock_backend
+    demo = {"bounds": [[24.55, 84.75], [25.75, 85.45]],
+            "cities": [[24.7914, 85.0002, "Gaya"], [25.5941, 85.1376, "Patna"]],
+            "facilities": [[f[2], f[3], f[1]] for f in mock_backend.FACILITIES]}
+
+event = tilik_map(
+    demo=demo, ui=ui, read=read, notes=notes, filters=filters, places=city_labels,
+    suggest_places=city_labels[:6] if MOCK else [], recent=ss.get("recent", []),
+    terms=SERVICE_TERMS.get(chosen_service), service=chosen_service, origin=list(origin) if origin else None, results=cards, selected=selected_id,
+    detail=detail, route=route, points=points, state_counts=state_counts, district_counts=district_counts,
+    title=title, subtitle="Hover a card to find it on the map. Click a card for the full evidence checklist.",
+    empty_html=empty_html, open_detail=bool(selected_id),
+    fit_key=f"{chosen_service}|{origin}|{len(cards)}|{json.dumps(filters, sort_keys=True)}",
+    key="tilik_map", default=None,
+)
+
+# Events from the component. Each is handled once (by its timestamp).
+if event and event.get("t") != ss.get("last_event_t"):
+    ss["last_event_t"] = event.get("t")
+    kind = event.get("kind")
+    if kind == "pin" and parse_coords(f"{event['lat']}, {event['lon']}"):
+        ss["place_text"], ss["place_label"] = f"{COORD_KEY}{event['lat']},{event['lon']}", f"Dropped pin ({event['lat']}, {event['lon']})"
+        if event.get("service"):  # keep what was typed or picked in "What care"
+            ss["service_text"] = event["service"]
+        ss["selected_record"] = None
+    elif kind == "select":
+        ss["selected_record"] = event.get("id")
+    elif kind == "search":
+        ss["service_text"] = event.get("service") or None
+        ss["place_text"] = event.get("place") or None
+        ss["place_label"] = event.get("place_text") if (event.get("place") or "").startswith(COORD_KEY) else None
+        ss["selected_record"] = None
+        if ss["service_text"] and ss["place_text"]:
+            label = ss["place_label"] or ss["place_text"].split("|", 1)[-1].strip()
+            rec = [ss["service_text"], ss["place_text"], label]
+            ss["recent"] = [rec] + [x for x in ss.get("recent", []) if x[:2] != rec[:2]][:4]
+    elif kind == "use_service" and service_text:
+        ss.setdefault("service_override", {})[service_text] = event.get("service")
+    elif kind == "reset":  # Reset map button: back to the first view
+        for k in ("service_text", "place_text", "place_label", "selected_record", "service_override"):
+            ss.pop(k, None)
+        ss["filters"] = {"min_ev": 0, "max_km": 300, "order": "near", "hide_unclear": False}
+    elif kind == "home":
+        st.query_params.clear()
+    elif kind == "filters":
+        ss["filters"] = {"min_ev": int(event.get("min_ev", 0)), "max_km": int(event.get("max_km", 300)),
+                         "order": event.get("order", "near"), "hide_unclear": bool(event.get("hide_unclear"))}
+    st.rerun()

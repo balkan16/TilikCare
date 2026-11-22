@@ -1,0 +1,7 @@
+# TilikCare brand theme (from the pitch deck): coral, navy, warm cream. Always light.
+[theme]
+base = "light"
+primaryColor = "#ee5a3f"
+backgroundColor = "#fbf7f3"
+secondaryBackgroundColor = "#f3e9e3"
+textColor = "#1a2233"
