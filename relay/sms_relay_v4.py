@@ -107,14 +107,26 @@ def classify(need):
 
 
 def resolve_place(place):
-    rows = run_sql(f"SELECT place_label, origin_latitude FROM {SCHEMA}.resolve_location_v2(:p)", {"p": place})
+    rows = run_sql(f"SELECT place_label, origin_latitude FROM {SCHEMA}.resolve_location_fast(:p)", {"p": place})
     return rows[0] if rows and rows[0].get("origin_latitude") is not None else None
 
 
+def score4(breakdown):
+    """Evidence score 0-4, same as the web app: the source-link point is not evidence of the service."""
+    parts = [p.strip() for p in str(breakdown or "").split(", ") if p.strip() and "source link" not in p.lower()]
+    total = sum(int(m.group(1)) for m in (re.match(r"^([+-]\d+)", p) for p in parts) if m)
+    return max(0, min(4, total))
+
+
 def find_care(service, place):
-    return run_sql(f"SELECT facility_name, distance_km, evidence_strength, phone "
-                   f"FROM {SCHEMA}.find_care(:s, :l, 'none') ORDER BY nearest_rank LIMIT 2",
+    # find_care_fast = same results as find_care, but reads stored tables (about 2 s instead of 8-12 s).
+    # It expects one of the 6 exact service names, which classify() already returns.
+    rows = run_sql(f"SELECT facility_name, distance_km, strength_breakdown, phone "
+                   f"FROM {SCHEMA}.find_care_fast(:s, :l, 'none') ORDER BY nearest_rank LIMIT 2",
                    {"s": service, "l": place})
+    for r in rows:
+        r["evidence_strength"] = score4(r.get("strength_breakdown"))
+    return rows
 
 
 # ------------------------------------------------------------------------------------------
@@ -159,7 +171,7 @@ def results_reply(service, place, urgent, read_as=""):
     for i, r in enumerate(rows, 1):
         phone = (r.get("phone") or "no tel").replace("+91", "0").replace(" ", "")
         km = round(float(r["distance_km"]))
-        lines.append(f"{i}){short_name(r['facility_name'])} {km}km ev{r['evidence_strength']}/5 {phone}")
+        lines.append(f"{i}){short_name(r['facility_name'])} {km}km ev{r['evidence_strength']}/4 {phone}")
     lines.append("Unverified. Call first.")
     reply = "\n".join(lines)
     while len(reply) > 160 and len(lines) > 3:  # drop option 2 if too long
