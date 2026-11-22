@@ -75,6 +75,17 @@
   .cl-ev { margin:4px 0 0; padding-left:16px; font-size:13px; color:#15803d; } .cl-ev a { color:#2563eb; }
   .cl-warn { margin-top:10px; background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:8px 12px; font-size:13px; color:#92400e; }
   .cl-warn ul { margin:4px 0 0; padding-left:18px; }
+  /* all nearby options table */
+  .tw { border:1px solid var(--line); border-radius:12px; overflow:auto; max-height:420px; }
+  table.opts { border-collapse:collapse; font-size:13px; min-width:760px; width:100%; }
+  table.opts th { position:sticky; top:0; background:#f3e9e3; text-align:left; font-weight:600; padding:8px 10px; white-space:nowrap; z-index:1; }
+  table.opts td { padding:7px 10px; border-top:1px solid var(--line); white-space:nowrap; vertical-align:middle; }
+  table.opts tr.o { cursor:pointer; } table.opts tr.o:hover td { background:#fdf1ec; }
+  table.opts tr.cur td { background:#fce5dd; font-weight:600; }
+  table.opts td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  table.opts td.why { max-width:340px; overflow:hidden; text-overflow:ellipsis; color:#4b5563; }
+  .evb { display:inline-flex; align-items:center; gap:6px; } .evb i { display:block; width:70px; height:6px; border-radius:3px; background:#eee3dc; overflow:hidden; }
+  .evb i b { display:block; height:100%; background:var(--brand); }
   /* ---- top search bar ---- */
   #top { padding:4px 2px 10px; }
   .bar-row { display:flex; align-items:center; gap:14px; }
@@ -446,6 +457,14 @@ function checklist(r, d, re) {
             : "<div class='small'>" + x.miss + "</div>") + "</div></div>").join("") + "</div>" +
     (warns.length ? "<div class='cl-warn'><b>\u26A0 Cautions</b><ul>" + warns.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "");
 }
+function optsTable(cur) {
+  const res = S.results || [];
+  return "<div class='small' style='margin-bottom:6px'>Click a row to open that facility. Hover a reason to read it in full.</div><div class='tw'><table class='opts'><thead><tr>" +
+    "<th>#</th><th>Facility</th><th>Distance (km, straight-line)</th><th>Evidence</th><th>Evidence level</th><th>Why</th></tr></thead><tbody>" +
+    res.map(x => "<tr class='o" + (x.id === cur ? " cur" : "") + "' data-id='" + esc(x.id) + "'><td class='num'>" + x.rank + "</td><td>" + esc(x.name) +
+      "</td><td class='num'>" + x.km.toFixed(1) + "</td><td><span class='evb'><i><b style='width:" + (x.ev * 20) + "%'></b></i>" + x.ev + "/5</span></td><td>" +
+      esc(x.label || "") + "</td><td class='why' title='" + esc(x.why || "") + "'>" + esc(x.why || "") + "</td></tr>").join("") + "</tbody></table></div>";
+}
 function detail(r) {
   const d = S.detail && S.detail.id === r.id ? S.detail : null;
   const hitRe = S.terms ? new RegExp(S.terms, "i") : null;
@@ -464,6 +483,7 @@ function detail(r) {
     "<div class='sect'><h4>Evidence checklist</h4>" + checklist(r, d, hitRe) + "</div>" +
     "<div class='sect'><h4>Everything the record lists</h4>" + (d ? list(d.specialties, "Specialties", hitRe) + list(d.procedures, "Procedures", hitRe) + list(d.equipment, "Equipment", hitRe)
       : "<div class='small'>Loading details...</div>") + "</div>" +
+    "<div class='sect'><h4>All nearby options</h4>" + optsTable(r.id) + "</div>" +
     "<div class='sect small'>Text from the facility's own record, not verified availability. Call ahead to confirm.</div>";
 }
 function renderLeft() {
@@ -476,6 +496,7 @@ function renderLeft() {
   if (r) {
     left.innerHTML = detail(r); left.scrollTop = 0;
     document.getElementById("back").onclick = () => { detailId = null; renderLeft(); };
+    left.querySelectorAll("tr.o").forEach(tr => tr.onclick = () => { if (tr.dataset.id !== r.id) select(tr.dataset.id); });
   } else {
     left.innerHTML = "<h2>" + esc(S.title) + "</h2><div class='sub'>" + esc(S.subtitle || "") + "</div><div class='grid'>" + res.map(card).join("") + "</div>";
     left.querySelectorAll(".card").forEach(c => {
