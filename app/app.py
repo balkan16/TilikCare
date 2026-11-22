@@ -91,7 +91,7 @@ def location_options() -> list[str]:
           SELECT concat('City | ', city, ' (', state, ')') AS label, 1 AS ord FROM {SCHEMA}.city_origins
           UNION ALL
           SELECT concat('PIN ', postcode, ' | ', initcap(array_join(districts, '/')), ' (', initcap(array_join(states, '/')), ')'), 2
-          FROM {SCHEMA}.pincode_reference
+          FROM {SCHEMA}.pincode_reference_tbl
           WHERE approximate_latitude BETWEEN 6 AND 37.5 AND approximate_longitude BETWEEN 68 AND 97.5
         ) ORDER BY ord, label
         """
@@ -101,18 +101,23 @@ def location_options() -> list[str]:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def suggest_services(text: str) -> pd.DataFrame:
+    exact = next((s for s in SERVICES if s.lower() == (text or "").strip().lower()), None)
+    if exact:  # one of the 6 names: answer directly, same as the database would ("Exact name")
+        return pd.DataFrame([{"suggestion_rank": 1, "service": exact, "level": "Exact name",
+                              "reason": f"Matched the service name ({exact})", "method": "Name match (no LLM)",
+                              "is_selected": True, "selection_note": f"Searching for: {exact}"}])
     return run_query(f"SELECT * FROM {SCHEMA}.suggest_services(:t) ORDER BY suggestion_rank", {"t": text})
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def resolve_location(text: str) -> pd.DataFrame:
-    return run_query(f"SELECT * FROM {SCHEMA}.resolve_location_v2(:t)", {"t": text})
+    return run_query(f"SELECT * FROM {SCHEMA}.resolve_location_fast(:t)", {"t": text})  # stored-table copy of resolve_location_v2
 
 
 @st.cache_data(ttl=600, show_spinner=False)
 def find_care(service: str, location_text: str, coords_text: str) -> pd.DataFrame:
     return run_query(
-        f"SELECT * FROM {SCHEMA}.find_care(:s, :l, :c) ORDER BY nearest_rank",
+        f"SELECT * FROM {SCHEMA}.find_care_fast(:s, :l, :c) ORDER BY nearest_rank",  # same results as find_care, stored tables
         {"s": service, "l": location_text, "c": coords_text},
     )
 
@@ -213,7 +218,7 @@ def facility_extras(source_record_id: str) -> dict:
     """Specialties, procedures, equipment (and email if allowed) for one facility record (card only)."""
     df = run_query(
         f"SELECT r.specialties, r.procedure, r.equipment, r.raw_unique_id "
-        f"FROM {SCHEMA}.facility_records r WHERE r.source_record_id = :id LIMIT 1",
+        f"FROM {SCHEMA}.facility_records_tbl r WHERE r.source_record_id = :id LIMIT 1",
         {"id": source_record_id},
     )
     out = df.iloc[0].to_dict() if len(df) else {}
@@ -400,7 +405,7 @@ def region_of(lon: float, lat: float, index) -> int | None:
 @st.cache_data(ttl=3600, show_spinner=False)
 def service_points(service: str) -> pd.DataFrame:
     return run_query(
-        f"SELECT DISTINCT c.facility_id, c.facility_name, c.latitude, c.longitude FROM {SCHEMA}.service_candidates c "
+        f"SELECT DISTINCT c.facility_id, c.facility_name, c.latitude, c.longitude FROM {SCHEMA}.service_candidates_tbl c "
         f"LEFT JOIN {SCHEMA}.candidate_verification cv ON cv.source_record_id = c.source_record_id "
         f"AND cv.requested_service = c.requested_service "
         f"WHERE c.requested_service = :s AND coalesce(cv.status, 'offered') NOT IN ('not_offered', 'planned') "
@@ -631,6 +636,7 @@ st.markdown(
     "div.block-container{padding:0.4rem 1.2rem 0 1.2rem;max-width:100%}"
     "[data-testid='stSidebar'],[data-testid='stSidebarCollapsedControl']{display:none}"
     "div[data-testid='stPopover'] button{border-radius:999px;padding:2px 12px;min-height:0}"
+    "[data-stale='true']{opacity:1 !important}"  # the map shows its own "Loading" pill instead of Streamlit's fade
     "</style>",
     unsafe_allow_html=True,
 )
@@ -655,6 +661,45 @@ with n1:
 with n2:
     with st.popover("How the ranking works", use_container_width=True):  # no icon=: older Streamlit on Databricks Apps
         st.markdown(RANKING_EXPLAINER)
+
+# Events from the component, handled at the top of the run so this same run shows the result.
+# (An explicit st.rerun() made Streamlit drop the map while the next run was still querying.)
+event = ss.get("tilik_map")  # the component's last value (kept by Streamlit under its key)
+if event and event.get("t") != ss.get("last_event_t"):
+    ss["last_event_t"] = event.get("t")
+    kind = event.get("kind")
+    if kind == "pin" and parse_coords(f"{event['lat']}, {event['lon']}"):
+        ss["place_text"], ss["place_label"] = f"{COORD_KEY}{event['lat']},{event['lon']}", f"Dropped pin ({event['lat']}, {event['lon']})"
+        if event.get("service"):  # keep what was typed or picked in "What care"
+            ss["service_text"] = event["service"]
+        ss["selected_record"] = None
+    elif kind == "select":
+        ss["selected_record"] = event.get("id")
+    elif kind == "search":
+        ss["service_text"] = event.get("service") or None
+        ss["place_text"] = event.get("place") or None
+        ss["place_label"] = event.get("place_text") if (event.get("place") or "").startswith(COORD_KEY) else None
+        ss["selected_record"] = None
+        if ss["service_text"] and ss["place_text"]:
+            label = ss["place_label"] or ss["place_text"].split("|", 1)[-1].strip()
+            rec = [ss["service_text"], ss["place_text"], label]
+            ss["recent"] = [rec] + [x for x in ss.get("recent", []) if x[:2] != rec[:2]][:4]
+    elif kind == "use_service" and ss.get("service_text"):
+        ss.setdefault("service_override", {})[ss["service_text"]] = event.get("service")
+    elif kind == "reset":  # Reset map button: back to the first view
+        for k in ("service_text", "place_text", "place_label", "selected_record", "service_override"):
+            ss.pop(k, None)
+        ss["filters"] = {"min_ev": 0, "max_km": 300, "order": "near", "hide_unclear": False}
+    elif kind == "home":
+        st.query_params.clear()
+        st.rerun()  # show the landing page
+    elif kind == "filters":
+        ss["filters"] = {"min_ev": int(event.get("min_ev", 0)), "max_km": int(event.get("max_km", 300)),
+                         "order": event.get("order", "near"), "hide_unclear": bool(event.get("hide_unclear"))}
+
+filters = ss["filters"]  # may have just changed (filters / reset)
+min_ev, max_km, hide_unclear = filters["min_ev"], filters["max_km"], filters["hide_unclear"]
+order = "Stronger evidence first" if filters["order"] == "ev" else "Nearest first"
 
 # ---------------------------------- Interpret the need ------------------------------
 chosen_service, read, notes = None, None, []
@@ -794,8 +839,9 @@ if MOCK:
             "cities": [[24.7914, 85.0002, "Gaya"], [25.5941, 85.1376, "Patna"]],
             "facilities": [[f[2], f[3], f[1]] for f in mock_backend.FACILITIES]}
 
-event = tilik_map(
-    demo=demo, ui=ui, read=read, notes=notes, filters=filters, places=city_labels,
+ss["run_no"] = ss.get("run_no", 0) + 1  # changes every run, so the component always gets a fresh render (clears "Loading")
+tilik_map(
+    run_no=ss["run_no"], demo=demo, ui=ui, read=read, notes=notes, filters=filters, places=city_labels,
     suggest_places=city_labels[:6] if MOCK else [], recent=ss.get("recent", []),
     terms=SERVICE_TERMS.get(chosen_service), service=chosen_service, origin=list(origin) if origin else None, results=cards, selected=selected_id,
     detail=detail, route=route, points=points, state_counts=state_counts, district_counts=district_counts,
@@ -805,35 +851,3 @@ event = tilik_map(
     key="tilik_map", default=None,
 )
 
-# Events from the component. Each is handled once (by its timestamp).
-if event and event.get("t") != ss.get("last_event_t"):
-    ss["last_event_t"] = event.get("t")
-    kind = event.get("kind")
-    if kind == "pin" and parse_coords(f"{event['lat']}, {event['lon']}"):
-        ss["place_text"], ss["place_label"] = f"{COORD_KEY}{event['lat']},{event['lon']}", f"Dropped pin ({event['lat']}, {event['lon']})"
-        if event.get("service"):  # keep what was typed or picked in "What care"
-            ss["service_text"] = event["service"]
-        ss["selected_record"] = None
-    elif kind == "select":
-        ss["selected_record"] = event.get("id")
-    elif kind == "search":
-        ss["service_text"] = event.get("service") or None
-        ss["place_text"] = event.get("place") or None
-        ss["place_label"] = event.get("place_text") if (event.get("place") or "").startswith(COORD_KEY) else None
-        ss["selected_record"] = None
-        if ss["service_text"] and ss["place_text"]:
-            label = ss["place_label"] or ss["place_text"].split("|", 1)[-1].strip()
-            rec = [ss["service_text"], ss["place_text"], label]
-            ss["recent"] = [rec] + [x for x in ss.get("recent", []) if x[:2] != rec[:2]][:4]
-    elif kind == "use_service" and service_text:
-        ss.setdefault("service_override", {})[service_text] = event.get("service")
-    elif kind == "reset":  # Reset map button: back to the first view
-        for k in ("service_text", "place_text", "place_label", "selected_record", "service_override"):
-            ss.pop(k, None)
-        ss["filters"] = {"min_ev": 0, "max_km": 300, "order": "near", "hide_unclear": False}
-    elif kind == "home":
-        st.query_params.clear()
-    elif kind == "filters":
-        ss["filters"] = {"min_ev": int(event.get("min_ev", 0)), "max_km": int(event.get("max_km", 300)),
-                         "order": event.get("order", "near"), "hide_unclear": bool(event.get("hide_unclear"))}
-    st.rerun()

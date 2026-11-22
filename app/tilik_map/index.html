@@ -15,6 +15,13 @@
   body.dark .hint { background:rgba(17,24,39,.95); }
   body.dark .ev-gray { background:#374151; color:#e5e7eb; }
   * { box-sizing: border-box; }
+  #busy { display:none; position:fixed; left:50%; top:96px; transform:translateX(-50%); z-index:6000; background:var(--ink); color:#fff;
+          border-radius:999px; padding:9px 18px; font:600 14px inherit; font-family:inherit; box-shadow:0 6px 18px rgba(0,0,0,.25);
+          align-items:center; gap:10px; }
+  #busy i { width:14px; height:14px; border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  body.busy #busy { display:flex; }
+  body.busy #left, body.busy #map { opacity:.55; transition:opacity .2s; }
   html, body { margin:0; height:100%; font-family: "Inter", "Source Sans Pro", -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); }
   #page { display:flex; flex-direction:column; height:100%; position:relative; }
   #wrap { display:flex; flex:1; min-height:0; gap:16px; }
@@ -140,6 +147,7 @@
 </style>
 </head>
 <body>
+<div id="busy"><i></i>Finding care near the patient...</div>
 <div id="page">
   <div id="top">
     <div class="bar-row">
@@ -160,7 +168,13 @@
 <script>
 // ---------------- Streamlit component protocol (no build step) ----------------
 function send(type, data) { window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data), "*"); }
-function setValue(v) { send("streamlit:setComponentValue", { value: v, dataType: "json" }); }
+function setValue(v) {  // every action shows "Loading..." until the app answers with a new render
+  if (v && v.kind !== "home") {
+    document.body.classList.add("busy");
+    clearTimeout(window.__busyT); window.__busyT = setTimeout(() => document.body.classList.remove("busy"), 60000);  // never stuck
+  }
+  send("streamlit:setComponentValue", { value: v, dataType: "json" });
+}
 function fitHeight() {
   let h = 800;
   try { const top = window.frameElement.getBoundingClientRect().top; h = Math.max(420, window.parent.innerHeight - top - 12); } catch (e) {}
@@ -641,6 +655,7 @@ let lastRegionKey = null;
 window.addEventListener("message", ev => {
   if (!ev.data || ev.data.type !== "streamlit:render") return;
   S = ev.data.args || {};
+  document.body.classList.remove("busy");
   setTheme(!!(ev.data.theme && ev.data.theme.base === "dark"));
   if (S.selected !== window.__lastSel) { window.__lastSel = S.selected; if (S.selected) detailId = S.selected; }
   if (detailId && !(S.results || []).some(x => x.id === detailId)) detailId = null;

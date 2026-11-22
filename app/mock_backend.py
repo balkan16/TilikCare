@@ -189,20 +189,21 @@ def _points(service):
 
 
 def run_query(query: str, params: dict | None = None) -> pd.DataFrame:
+    import os, time; time.sleep(float(os.getenv("MOCK_DELAY", "0")))  # simulate a slow warehouse
     p = params or {}
     q = " ".join(query.split())
     if "suggest_services(" in q:
         return _suggest(p.get("t"))
-    if "resolve_location_v2(" in q:
+    if "resolve_location_v2(" in q or "resolve_location_fast(" in q:
         return _resolve(p.get("t"))
-    if "find_care(" in q:
+    if "find_care(" in q or "find_care_fast(" in q:
         return _find(p.get("s"), p.get("l"), p.get("c"))
-    if "facility_records r" in q:
+    if "facility_records r" in q or "facility_records_tbl r" in q:
         return _extras(p.get("id"))
     if "max(f.email)" in q:
         f = next((x for x in FACILITIES if x[0] == p.get("u")), None)
         return pd.DataFrame([{"email": f"info@{f[0]}.example.org" if f else None}])
-    if "service_candidates c" in q:
+    if "service_candidates c" in q or "service_candidates_tbl c" in q:
         return _points(p.get("s"))
     if "city_origins" in q:
         return pd.DataFrame({"label": list(PLACES)})
