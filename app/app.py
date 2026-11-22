@@ -162,8 +162,17 @@ CRITERIA = [
     ("procedure", "Not listed under procedure"),
     ("equipment", "Not listed under equipment"),
     ("2 or more", "Mentioned in only one field"),
-    ("source link", "No source link"),
 ]
+MAX_SCORE = 4  # a source link is not evidence of the service, so it no longer earns a point
+
+
+def rescore(breakdown) -> tuple[int, str, str]:
+    """Score 0-4 from the database's point list, ignoring the source-link point."""
+    parts = [p.strip() for p in str(breakdown or "").split(", ") if p.strip() and "source link" not in p.lower()]
+    total = sum(int(m.group(1)) for m in (re.match(r"^([+-]\d+)", p) for p in parts) if m)
+    total = max(0, min(MAX_SCORE, total))
+    label = "Stronger text evidence" if total >= 3 else "Moderate text evidence" if total >= 2 else "Weak text evidence"
+    return total, label, ", ".join(parts)
 COPY_HTML = """
 <style>
   body { margin: 0; }
@@ -552,9 +561,9 @@ In a life-threatening emergency, call 108 (ambulance in most Indian states) firs
 - Straight-line distance is not road distance or travel time: water, hills and traffic can make a near facility
   slow to reach. For the selected facility the details also show the road distance and an estimated drive time
   (OpenStreetMap roads, no traffic), and a button opens the route in Google Maps.
-- "Stronger evidence first" re-orders the same 20: facilities scoring 3/5 or more come first, each group by distance.
+- "Stronger evidence first" re-orders the same 20: facilities scoring 3/4 or more come first, each group by distance.
 
-#### 5. What the evidence score means (0 to 5)
+#### 5. What the evidence score means (0 to 4)
 It rates how well the record's text supports the service. It is not a rating of hospital quality.
 
 | Signal in the record | Points |
@@ -563,13 +572,12 @@ It rates how well the record's text supports the service. It is not a rating of 
 | Listed under procedure | +1 |
 | Listed under equipment | +1 |
 | Mentioned in 2 or more fields | +1 |
-| Has a source link | +1 |
 | Wording suggests the service is not offered or only planned | -2 |
 | Long text may describe another facility | -1 |
 | Duplicate or identity warning | -1 |
 | Location needs review | -1 |
 
-The total is kept between 0 and 5: 4-5 is stronger, 2-3 moderate and 0-1 weak text evidence. On the card, the
+The total is kept between 0 and 4: 3-4 is stronger, 2 moderate and 0-1 weak text evidence. A link to the source page is shown but earns no point: it proves where the text came from, not that the service exists. On the card, the
 green box lists the points earned; the red box lists points not earned, deductions and cautions.
 
 #### 6. What the rest of the card and map show
@@ -748,6 +756,8 @@ results = pd.DataFrame()
 if chosen_service and origin is not None:
     results = find_care(chosen_service, location_text, coords_text)
     if not results.empty:
+        rs = results["strength_breakdown"].map(rescore)
+        results = results.assign(evidence_strength=rs.str[0], strength_label=rs.str[1], strength_breakdown=rs.str[2])
         results = results[(results["evidence_strength"] >= min_ev) & (results["distance_km"] <= max_km)]
         if hide_unclear:
             results = results[~results["caution_flags"].fillna("").str.contains("AI check", case=False)]
@@ -772,7 +782,7 @@ for _, r in results.iterrows():
         "km": float(r["distance_km"]), "ev": int(r["evidence_strength"]), "label": clean_text(r["strength_label"]) or "",
         "quote": (clean_text(r["evidence_quote"]) or "")[:300] or None, "source": first_url(r["source_url"]),
         "phone": clean_text(r["phone"]), "website": first_url(r["website"]), "caution": clean_text(r["caution_flags"]),
-        "why": clean_text(r["why_this"]), "plus": plus, "minus": minus, "fields": clean_text(r["evidence_fields"]),
+        "why": f"#{int(r['display_rank'])} nearest: {float(r['distance_km']):.1f} km straight-line. Evidence {int(r['evidence_strength'])}/{MAX_SCORE} ({r['strength_label']}).", "plus": plus, "minus": minus, "fields": clean_text(r["evidence_fields"]),
     })
 
 detail, route = None, None

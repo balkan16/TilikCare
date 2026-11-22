@@ -180,10 +180,10 @@ def render_landing():
         <div class="top"><div class="sb"><div><b>What care</b>Dialysis</div><div><b>Where</b>Gaya, Bihar</div><span class="go">Search</span></div></div>
         <div class="body">
           <div class="cards">
-            <div class="c on">#1 · 1.3 km away<b>City Hospital</b><span class="chip">Evidence 5/5</span> <span class="ok">✓ capability ✓ procedure ✓ equipment</span>
+            <div class="c on">#1 · 1.3 km away<b>City Hospital</b><span class="chip">Evidence 4/4</span> <span class="ok">✓ capability ✓ procedure ✓ equipment</span>
               <div style="margin-top:6px;font-style:italic;color:#374151">"Hemodialysis machine (6)"</div></div>
-            <div class="c">#2 · 2.4 km away<b>Kidney and Heart Centre</b><span class="chip">Evidence 5/5</span> <span class="ok">✓ ✓ ✓</span></div>
-            <div class="c">#3 · 6.1 km away<b>District Hospital</b><span class="chip o">Evidence 2/5</span> <span class="no">⚠ wording says “planned”</span></div>
+            <div class="c">#2 · 2.4 km away<b>Kidney and Heart Centre</b><span class="chip">Evidence 4/4</span> <span class="ok">✓ ✓ ✓</span></div>
+            <div class="c">#3 · 6.1 km away<b>District Hospital</b><span class="chip o">Evidence 2/4</span> <span class="no">⚠ wording says “planned”</span></div>
           </div>
           <div class="map">
             <img class="india" src="{india_svg_paths()}" alt="">
@@ -211,7 +211,7 @@ def render_landing():
       <div class="fs"><div class="fb"></div><div class="num">2</div><h3>Locate</h3><p>City, PIN code, your current location, or a pin on the map.</p><div class="ex">823001 → Gaya PIN centre</div></div>
       <div class="fs"><div class="fb"></div><div class="num">3</div><h3>Match</h3><p>Facilities whose own record mentions the service, nearest first.</p><div class="ex">20 nearest candidates</div></div>
       <div class="fs"><div class="fb"></div><div class="num">4</div><h3>Verify</h3><p>AI check removes "planned" and "not offered"; quotes checked word for word.</p><div class="ex">"cure without dialysis" → removed</div></div>
-      <div class="fs"><div class="fb"></div><div class="num">5</div><h3>Decide</h3><p>Evidence checklist, road distance, then call or get directions.</p><div class="ex">5 of 5 checks · ~6 min drive</div></div>
+      <div class="fs"><div class="fb"></div><div class="num">5</div><h3>Decide</h3><p>Evidence checklist, road distance, then call or get directions.</p><div class="ex">4 of 4 checks · ~6 min drive</div></div>
     </div>
     <div class="cta" style="margin-top:32px"><a class="btn" href="{DASH}" target="_self">Find a healthcare facility &rarr;</a></div>
   </div></section>
@@ -230,7 +230,7 @@ def render_landing():
         </ul>
       </div>
       <div class="cl">
-        <div class="h">Evidence checklist · City Hospital · 5 of 5 checks met</div>
+        <div class="h">Evidence checklist · City Hospital · 4 of 4 checks met</div>
         <div class="r y"><div class="i">✓</div><div><div class="t"><b>States it as a capability</b></div><div class="e">"Dialysis unit with 6 machines"</div></div></div>
         <div class="r y"><div class="i">✓</div><div><div class="t"><b>Lists a matching procedure</b></div><div class="e">Hemodialysis · CAPD</div></div></div>
         <div class="r y"><div class="i">✓</div><div><div class="t"><b>Lists matching equipment</b></div><div class="e">Hemodialysis machine (6)</div></div></div>

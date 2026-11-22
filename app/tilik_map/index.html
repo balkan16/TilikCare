@@ -73,7 +73,8 @@
   .cl-row.no .cl-q { color:var(--muted); }
   .cl-q { font-weight:600; font-size:14px; }
   .cl-ev { margin:4px 0 0; padding-left:16px; font-size:13px; color:#15803d; } .cl-ev a { color:#2563eb; }
-  .cl-warn { margin-top:10px; background:#fef3c7; border:1px solid #fcd34d; border-radius:10px; padding:8px 12px; font-size:13px; color:#92400e; }
+  .cl-warn { margin-top:10px; background:rgba(239,68,68,.06); border:1px solid rgba(239,68,68,.40); border-radius:10px; padding:8px 12px; font-size:13px; color:#1a2233; }
+  .cl-warn b { color:#b91c1c; }
   .cl-warn ul { margin:4px 0 0; padding-left:18px; }
   /* all nearby options table */
   .tw { border:1px solid var(--line); border-radius:12px; overflow:auto; max-height:420px; }
@@ -244,8 +245,8 @@ let pointsLayer = L.layerGroup().addTo(map), pinsLayer = L.layerGroup().addTo(ma
 let pinById = {}, lastFitKey = null, detailId = null;
 
 const COLORS = { g: "#16a34a", o: "#ea580c", x: "#6b7280" };
-const evClass = s => s >= 4 ? "g" : s >= 2 ? "o" : "x";
-const chipClass = s => s >= 4 ? "ev-green" : s >= 2 ? "ev-orange" : "ev-gray";
+const evClass = s => s >= 3 ? "g" : s >= 2 ? "o" : "x";
+const chipClass = s => s >= 3 ? "ev-green" : s >= 2 ? "ev-orange" : "ev-gray";
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const gmaps = (o, d) => "https://www.google.com/maps/dir/?api=1&origin=" + o[0] + "," + o[1] + "&destination=" + d[0] + "," + d[1] + "&travelmode=driving";
 
@@ -415,25 +416,15 @@ function drawPins() {
   }
 }
 
-function gapLabel(t) {
-  t = String(t).replace(/^-\d\s*/, "").replace(/^caution:\s*/i, "").trim();
-  if (/negat|planned/i.test(t)) return "May be planned or not offered";
-  if (/long text|attribution|another facility/i.test(t)) return "Text may describe another facility";
-  if (/duplicate|identity/i.test(t)) return "Possible duplicate listing";
-  if (/location|address|coordinat|geocod/i.test(t)) return "Location needs checking";
-  if (/AI check|not clearly confirm/i.test(t)) return "AI check: not clearly confirmed";
-  return t;
-}
-function gaps(r) {
-  const src = (r.caution || "").split(";").concat((r.minus || []).filter(x => /^-\d|^caution/i.test(x)));
-  return [...new Set(src.map(x => x.trim()).filter(Boolean).map(gapLabel))];
+function gaps(r) {  // only the checks this record did not meet, e.g. "Not listed under equipment"
+  return (r.minus || []).filter(x => !/^-\d|^caution/i.test(x));
 }
 function card(r) {
-  const g = gaps(r), caution = g.length ? "<span class='chip warn'>\u26A0 " + esc(g.join(" · ")) + "</span>" : "";
+  const caution = "";
   return "<div class='card" + (r.id === S.selected ? " sel" : "") + "' data-id='" + esc(r.id) + "'>" +
     "<div class='row'><span class='rank'>#" + r.rank + " · " + r.km.toFixed(1) + " km away</span>" + caution + "</div>" +
     "<div class='name'>" + esc(r.name) + "</div><div class='addr'>" + esc(r.address || "Address not listed") + "</div>" +
-    "<div class='meta'><span class='chip " + chipClass(r.ev) + "'>Evidence " + r.ev + "/5</span> <span class='small'>" +
+    "<div class='meta'><span class='chip " + chipClass(r.ev) + "'>Evidence " + r.ev + "/4</span> <span class='small'>" +
       ["capability", "procedure", "equipment"].map(k => (r.plus.join(" ").toLowerCase().includes(k) ? "\u2713 " : "\u2715 ") + k).join(" · ") + "</span></div>" +
     (r.quote ? "<div class='quote'>\"" + esc(r.quote) + "\"</div>" : "") +
     "<div class='btns'><a class='btn primary' target='_blank' rel='noopener' href='" + gmaps(S.origin, [r.lat, r.lon]) + "' onclick='event.stopPropagation()'>Directions</a>" +
@@ -460,26 +451,24 @@ function checklist(r, d, re) {
       ev: match(d && d.equipment).map(esc) },
     { ok: earned.includes("2 or more"), q: "Mentioned in more than one part of the record", miss: "Mentioned in only one part",
       ev: fields.length ? ["Found in " + fields.length + " part" + (fields.length > 1 ? "s" : "") + ": " + esc(fields.join(", "))] : [] },
-    { ok: earned.includes("source link"), q: "Links to the original web page", miss: "No link to the original page",
-      ev: r.source ? ["<a target='_blank' rel='noopener' href='" + esc(r.source) + "'>Open the source page</a>"] : [] },
   ];
   const met = rows.filter(x => x.ok).length;
   const warns = gaps(r);
-  return "<div class='cl-head'><b>" + met + " of 5 checks met</b> · score " + r.ev + "/5 " +
+  return "<div class='cl-head'><b>" + met + " of 4 checks met</b> · score " + r.ev + "/4 " +
     "<span class='chip " + chipClass(r.ev) + "'>" + esc(r.label) + "</span></div>" +
     "<div class='cl'>" + rows.map(x =>
       "<div class='cl-row " + (x.ok ? "yes" : "no") + "'><div class='cl-ic'>" + (x.ok ? "\u2713" : "\u2715") + "</div><div><div class='cl-q'>" + x.q + "</div>" +
       (x.ok ? (x.ev.length ? "<ul class='cl-ev'>" + x.ev.slice(0, 4).map(e => "<li>" + e + "</li>").join("") + "</ul>"
                            : (d ? "" : "<div class='small'>Loading the record...</div>"))
             : "<div class='small'>" + x.miss + "</div>") + "</div></div>").join("") + "</div>" +
-    (warns.length ? "<div class='cl-warn'><b>\u26A0 Gaps</b><ul>" + warns.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "");
+    (warns.length ? "<div class='cl-warn'><b>Gaps</b><ul>" + warns.map(w => "<li>" + esc(w) + "</li>").join("") + "</ul></div>" : "");
 }
 function optsTable(cur) {
   const res = S.results || [];
   return "<div class='small' style='margin-bottom:6px'>Click a row to open that facility. Hover a reason to read it in full.</div><div class='tw'><table class='opts'><thead><tr>" +
     "<th>#</th><th>Facility</th><th>Distance (km, straight-line)</th><th>Evidence</th><th>Evidence level</th><th>Why</th></tr></thead><tbody>" +
     res.map(x => "<tr class='o" + (x.id === cur ? " cur" : "") + "' data-id='" + esc(x.id) + "'><td class='num'>" + x.rank + "</td><td>" + esc(x.name) +
-      "</td><td class='num'>" + x.km.toFixed(1) + "</td><td><span class='evb'><i><b style='width:" + (x.ev * 20) + "%'></b></i>" + x.ev + "/5</span></td><td>" +
+      "</td><td class='num'>" + x.km.toFixed(1) + "</td><td><span class='evb'><i><b style='width:" + (x.ev * 25) + "%'></b></i>" + x.ev + "/4</span></td><td>" +
       esc(x.label || "") + "</td><td class='why' title='" + esc(x.why || "") + "'>" + esc(x.why || "") + "</td></tr>").join("") + "</tbody></table></div>";
 }
 function detail(r) {
@@ -487,7 +476,7 @@ function detail(r) {
   const hitRe = S.terms ? new RegExp(S.terms, "i") : null;
   const road = d && d.route ? [d.route.km.toFixed(0) + " km (" + d.route.min.toFixed(0) + " min)", "by road"]
     : d ? ["~" + r.km.toFixed(1) + " km", "straight-line (road route unavailable)"] : ["...", "finding the road route"];
-  const facts = [road, [r.ev + "/5", "evidence score"]];
+  const facts = [road, [r.ev + "/4", "evidence score"]];
   return "<button class='back' id='back'>&larr; All results</button>" +
     "<div class='small'>#" + r.rank + " of " + S.results.length + "</div><div class='dname'>" + esc(r.name) + "</div>" +
     "<div class='small'>" + esc(r.address || "Address not listed") + "</div>" +
@@ -670,7 +659,7 @@ document.addEventListener("mousedown", ev => {
 function drawFilters() {
   const f = filters, chip = (grp, v, lbl, on) => "<button class='chipb" + (on ? " on" : "") + "' data-g='" + grp + "' data-v='" + v + "'>" + lbl + "</button>";
   $("fp").innerHTML =
-    "<h5>Minimum text evidence</h5><div class='chips'>" + [0, 1, 2, 3, 4, 5].map(v => chip("ev", v, v ? v + "+/5" : "Any", f.min_ev === v)).join("") + "</div>" +
+    "<h5>Minimum text evidence</h5><div class='chips'>" + [0, 1, 2, 3, 4].map(v => chip("ev", v, v ? v + "+/4" : "Any", f.min_ev === v)).join("") + "</div>" +
     "<h5>Maximum distance (straight-line)</h5><div class='chips'>" + [10, 25, 50, 100, 300].map(v => chip("km", v, v === 300 ? "Any" : v + " km", f.max_km === v)).join("") + "</div>" +
     "<h5>Order</h5><div class='chips'>" + chip("ord", "near", "Nearest first", f.order === "near") + chip("ord", "ev", "Stronger evidence first", f.order === "ev") + "</div>" +
     "<h5>AI check</h5><div class='chips'>" + chip("unc", 0, "Show all", !f.hide_unclear) + chip("unc", 1, "Hide “unclear”", f.hide_unclear) + "</div>" +
