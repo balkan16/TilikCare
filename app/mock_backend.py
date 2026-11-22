@@ -179,7 +179,7 @@ def _extras(record_id):
     if not f:
         return pd.DataFrame()
     return pd.DataFrame([{"specialties": json.dumps(f[7]), "procedure": json.dumps(f[8]),
-                          "equipment": json.dumps(f[9]), "email": f"info@{f[0]}.example.org"}])
+                          "equipment": json.dumps(f[9]), "raw_unique_id": f[0]}])
 
 
 def _points(service):
@@ -199,6 +199,9 @@ def run_query(query: str, params: dict | None = None) -> pd.DataFrame:
         return _find(p.get("s"), p.get("l"), p.get("c"))
     if "facility_records r" in q:
         return _extras(p.get("id"))
+    if "max(f.email)" in q:
+        f = next((x for x in FACILITIES if x[0] == p.get("u")), None)
+        return pd.DataFrame([{"email": f"info@{f[0]}.example.org" if f else None}])
     if "service_candidates c" in q:
         return _points(p.get("s"))
     if "city_origins" in q:

@@ -34,7 +34,7 @@ SERVICE_REFS = {
 INDIA_CENTER = (22.5, 79.0)
 # Words that show an item is about the service (for highlighting evidence in the record's lists; display only)
 SERVICE_TERMS = {
-    "Dialysis": r"dialysis|hemodialysis|haemodialysis|capd|nephrolog|kidney|renal",
+    "Dialysis": r"dialysis|dialyser|dialyzer|capd|nephrolog",  # not "kidney": "kidney stone treatment" is not dialysis
     "Emergency C-section": r"caesarean|cesarean|c-section|c section|lscs|obstetric",
     "NICU": r"nicu|neonat|newborn|sncu|incubator",
     "Cardiac surgery": r"cardiac surg|cabg|cardiothoracic|ctvs|open heart|bypass|valve|heart surgery|heart-lung",
@@ -210,15 +210,23 @@ def esc(s) -> str:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def facility_extras(source_record_id: str) -> dict:
-    """Specialties, procedures, equipment and email for one facility record (card only)."""
+    """Specialties, procedures, equipment (and email if allowed) for one facility record (card only)."""
     df = run_query(
-        f"SELECT r.specialties, r.procedure, r.equipment, "
-        f"(SELECT max(f.email) FROM {RAW_FACILITIES} f WHERE f.unique_id = r.raw_unique_id "
-        f"AND f.email IS NOT NULL AND trim(f.email) NOT IN ('', 'null', '[]')) AS email "
+        f"SELECT r.specialties, r.procedure, r.equipment, r.raw_unique_id "
         f"FROM {SCHEMA}.facility_records r WHERE r.source_record_id = :id LIMIT 1",
         {"id": source_record_id},
     )
-    return df.iloc[0].to_dict() if len(df) else {}
+    out = df.iloc[0].to_dict() if len(df) else {}
+    try:  # email lives in the raw dataset; the app may not have access to it, which must not hide the lists
+        em = run_query(
+            f"SELECT max(f.email) AS email FROM {RAW_FACILITIES} f WHERE f.unique_id = :u "
+            f"AND f.email IS NOT NULL AND trim(f.email) NOT IN ('', 'null', '[]')",
+            {"u": str(out.get("raw_unique_id") or "")},
+        )
+        out["email"] = em.iloc[0]["email"] if len(em) else None
+    except Exception:
+        out["email"] = None
+    return out
 
 
 def first_email(raw) -> str | None:
@@ -645,7 +653,7 @@ with n1:
                "Text matches from facility records, not verified availability. Always call ahead. "
                "Does not diagnose. Emergency: call **108**.")
 with n2:
-    with st.popover("How the ranking works", icon=":material/help:", use_container_width=True):
+    with st.popover("How the ranking works", use_container_width=True):  # no icon=: older Streamlit on Databricks Apps
         st.markdown(RANKING_EXPLAINER)
 
 # ---------------------------------- Interpret the need ------------------------------
