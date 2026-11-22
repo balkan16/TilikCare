@@ -146,7 +146,7 @@
   .lsearch:focus { border-color:var(--brand); }
   .small { font-size:12px; color:var(--muted); }
   /* map pins */
-  .pill { background:#fff; color:var(--ink); border-radius:999px; padding:5px 12px; font:800 14px "Inter","Source Sans Pro",sans-serif; border-width:2.5px !important;
+  .pill { background:#fff; color:var(--ink); border-radius:999px; padding:5px 12px; font:800 14px "Inter","Source Sans Pro",sans-serif; border-width:3px !important; box-shadow:0 2px 8px rgba(26,34,51,.35) !important;
           box-shadow:0 2px 6px rgba(0,0,0,.25); white-space:nowrap; border:2px solid var(--gray); transform:translate(-50%,-50%);
           position:absolute; transition: transform .12s, background .12s; }
   .pill.g { border-color:var(--green); } .pill.o { border-color:var(--orange); }
@@ -198,24 +198,24 @@ function fitHeight() {
 // ---------------- Map setup ----------------
 const map = L.map("map", { zoomControl: true, minZoom: 4, zoomSnap: 0.25, zoomDelta: 0.5, maxBounds: [[4, 64], [39, 101]], maxBoundsViscosity: 1.0 })
   .setView([22.5, 81], 5);
-const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_{v}_Gray_Base/MapServer/tile/{z}/{y}/{x}";
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";  // roads, parks, towns
 let tiles = null, dark = null;
 function setTheme(isDark) {
   if (isDark === dark) return; dark = isDark;
   document.body.classList.toggle("dark", isDark);
   if (tiles) map.removeLayer(tiles);
-  tiles = L.tileLayer(ESRI.replace("{v}", isDark ? "Dark" : "Light"),
-    { attribution: "Tiles &copy; Esri", maxZoom: 16, opacity: 0 }).addTo(map);
+  tiles = L.tileLayer(ESRI,
+    { attribution: "Tiles &copy; Esri, HERE, Garmin, OpenStreetMap contributors", maxZoom: 18, opacity: 1 }).addTo(map);
   if (maskLayer) maskLayer.setStyle({ fillColor: isDark ? "#0e1117" : "#f3ede6" });
   fadeTiles();
 }
 let maskLayer = null, baseLayer = null, focusLayer = null, focusName = null;
 // Landing-page look: zoomed out = plain white states on beige (no street map); zoomed in = street map fades in.
 function fadeTiles() {
-  const z = map.getZoom(), o = Math.max(0, Math.min(1, (z - 7.5) / 1.0));
-  if (tiles) tiles.setOpacity(o);
-  if (baseLayer) baseLayer.setStyle({ fillOpacity: 1 - o });
-  if (focusLayer) focusLayer.setStyle({ fillOpacity: 0.85 * (1 - o) });
+  // Street map is always visible; the patient's state keeps a light tint so it still stands out.
+  if (tiles) tiles.setOpacity(1);
+  if (baseLayer) baseLayer.setStyle({ fillOpacity: 0 });
+  if (focusLayer) focusLayer.setStyle({ fillOpacity: 0.18 });
 }
 // "Reset map" control under the zoom buttons: back to the whole of India (keeps the search and results)
 const ResetCtl = L.Control.extend({ options: { position: "topleft" }, onAdd: function () {
@@ -249,8 +249,8 @@ const gmaps = (o, d) => "https://www.google.com/maps/dir/?api=1&origin=" + o[0] 
 
 function regionStyle(counts, top, f) {
   const n = counts ? (counts[f.properties.__i] || 0) : 0;
-  return { pane: "regions", color: "#d6c4ba", weight: 0.8, fillColor: "#ee5a3f",
-           fillOpacity: S.service ? 0.04 + 0.5 * n / (top || 1) : 0 };
+  return { pane: "regions", color: "#64748b", weight: 0.9, opacity: 0.7, fillColor: "#ee5a3f",
+           fillOpacity: S.service ? 0.03 + 0.4 * n / (top || 1) : 0 };
 }
 function tipText(f, counts, kind) {
   const n = counts ? (counts[f.properties.__i] || 0) : null;
@@ -314,7 +314,7 @@ function toggleRegions() {
     if (on && !map.hasLayer(l)) l.addTo(map); if (!on && map.hasLayer(l)) map.removeLayer(l);
     if (on) l.eachLayer(x => x.setStyle({ fillOpacity: fill ? x.options.fillOpacity : 0.0, interactive: true }));
   });
-  if (showS && !map.hasLayer(stateLabels)) stateLabels.addTo(map); if (!showS) map.removeLayer(stateLabels);
+  if (map.hasLayer(stateLabels)) map.removeLayer(stateLabels);  // the street map already prints state names; ours show on hover
   if (map.hasLayer(distLabels)) map.removeLayer(distLabels);  // district names: hover tooltip only (too crowded)
   setTimeout(sizeLabels, 0); fadeTiles();
   // The outside-India fade is only for the overview: zoomed in, overlapping border shapes draw as black wedges.
@@ -340,7 +340,7 @@ function buildMask() {  // fade everything outside India
     const g = f.geometry, polys = g.type === "MultiPolygon" ? g.coordinates : [g.coordinates];
     polys.forEach(p => holes.push(p[0].map(c => [c[1], c[0]])));
   });
-  maskLayer = L.polygon([world, ...holes], { pane: "mask", stroke: false, fillColor: dark ? "#0e1117" : "#f3ede6", fillOpacity: 1, interactive: false }).addTo(map);
+  maskLayer = L.polygon([world, ...holes], { pane: "mask", stroke: false, fillColor: dark ? "#0e1117" : "#f3ede6", fillOpacity: 0.75, interactive: false }).addTo(map);
   baseLayer = L.geoJSON(states, { pane: "base", interactive: false, style: { stroke: false, fillColor: "#ffffff", fillOpacity: 1 } }).addTo(map);
   fadeTiles();
 }
