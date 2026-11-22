@@ -1,0 +1,8 @@
+streamlit>=1.38
+databricks-sql-connector>=3.4
+databricks-sdk>=0.30
+pandas
+pyarrow
+folium>=0.17
+streamlit-folium>=0.22
+streamlit-searchbox>=0.1.24

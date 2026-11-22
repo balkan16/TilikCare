@@ -1,0 +1,282 @@
+{
+  "catalog_name": "workspace",
+  "comment": "Up to 20 nearest text-match candidates for the selected service, by straight-line distance. Candidates the AI check marked not_offered or planned are excluded; verified quotes are shown; unclear ones carry a caution.",
+  "created_at": 1795325031428,
+  "created_by": "fikhsan@andrew.cmu.edu",
+  "data_type": "TABLE_TYPE",
+  "full_data_type": "(nearest_rank INT, facility_name STRING, full_address STRING, distance_km DOUBLE, distance_label STRING, evidence_strength INT, strength_label STRING, strength_breakdown STRING, evidence_fields STRING, evidence_quote STRING, why_this STRING, caution_flags STRING, phone STRING, website STRING, source_url STRING, availability_now STRING, requested_service STRING, origin_precision STRING, latitude DOUBLE, longitude DOUBLE, facility_id STRING, source_record_id STRING)",
+  "full_name": "workspace.carematch.find_care",
+  "function_id": "11b87a7a-29d7-4cb7-80f3-85f55b3d54b0",
+  "input_params": {
+    "parameters": [
+      {
+        "name": "service_text",
+        "parameter_type": "PARAM",
+        "position": 0,
+        "type_json": "{\"name\":\"service_text\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "location_text",
+        "parameter_type": "PARAM",
+        "position": 1,
+        "type_json": "{\"name\":\"location_text\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "coordinates_text",
+        "parameter_type": "PARAM",
+        "position": 2,
+        "type_json": "{\"name\":\"coordinates_text\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      }
+    ]
+  },
+  "is_deterministic": false,
+  "metastore_id": "35ef1115-a321-4232-8d87-a53aa692c978",
+  "name": "find_care",
+  "owner": "fikhsan@andrew.cmu.edu",
+  "parameter_style": "S",
+  "properties": "{\"sqlConfig.spark.databricks.sql.functions.aiFunctions.batchSession.terminate.enabled\":\"true\",\"sqlConfig.spark.sql.scripting.maxNumberOfCharacters\":\"1000000\",\"sqlConfig.spark.sql.streaming.optimizer.subqueryEarlyUnnesting.enabled\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.grpc.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.ai.partitionProcessor.maxWaitTimeSeconds\":\"172800\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.taskWaitTimeInSeconds\":\"1000\",\"sqlConfig.spark.databricks.sql.functions.aiQuery.temperature.whitelistMode.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.similarity.batch.execution.enabled\":\"false\",\"sqlConfig.spark.databricks.ai.adaptiveBatch.retriableInvokeStatusCodes\":\"UNAVAILABLE,RESOURCE_EXHAUSTED,DEADLINE_EXCEEDED,ABORTED,CANCELLED\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.includeWorkspaceUrl\":\"false\",\"referredTempTableNames\":\"[]\",\"sqlConfig.spark.sql.standardIndex.forceReadOptimizedClustering\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.decimal.dataType.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.extract.tileMetadata.enabled\":\"true\",\"referredTempFunctionsNames\":\"[]\",\"sqlConfig.spark.databricks.docingest.apdfl.sandbox.enabled\":\"false\",\"sqlConfig.spark.databricks.docingest.stage2.descriptionModel\":\"databricks-gemma-3-12b\",\"sqlConfig.spark.sql.ansi.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.dynamicPoolSizeEnabled\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.remoteFunction.grpc.batch.maxConcurrentRequests\":\"2048\",\"sqlConfig.spark.sql.secondaryIndex.showInDescribeTable\":\"true\",\"sqlConfig.spark.sql.standardIndex.enabled\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.debugLogEnabled\":\"true\",\"sqlConfig.spark.sql.secondaryIndex.ucIntegration.enabled\":\"true\",\"sqlConfig.spark.sql.skipIndexForTextSearch.ngramIndex.parameterCalculation\":\"true\",\"sqlConfig.spark.sql.vectorIndex.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.purposeBuiltFunctions.translate.instruction\":\"### Instruction\\n\\nTranslate the provided text to %s, and output only the translated text\\nin the target language in this format: \u003cDBSQLAI\u003etranslated text\u003c/DBSQLAI\u003e.\\n\\nIf the text is already in the target language, output the provided text.\\n\\n### Text\\n\\n%s\",\"sqlConfig.spark.databricks.docingest.version.default\":\"2.0\",\"sqlConfig.spark.sql.session.timeZone\":\"Etc/UTC\",\"catalogAndNamespace.part.0\":\"workspace\",\"sqlConfig.spark.sql.validateColumnNamesSync.throwException\":\"true\",\"sqlConfig.spark.sql.standardIndex.costBasedSelection.enabled\":\"true\",\"sqlConfig.spark.sql.avro.datetimeRebaseModeInRead\":\"LEGACY\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.remoteHttpClient.maxConnections\":\"2048\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.nullInputJsonOutput\":\"{\\\"response\\\":null,\\\"error_message\\\":null}\",\"sqlConfig.spark.sql.legacy.useLegacyXMLParser.migrationValidation.enabled\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiQuery.hybrid.reasoning.foundation.model.list\":\"databricks-claude-3-7-sonnet,databricks-gemini-2-5-pro,databricks-gemini-2-5-flash,databricks-gemini-3-flash\",\"sqlConfig.spark.sql.legacy.createHiveTableByDefault\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.maxPoolSize.aiParseDocument\":\"64\",\"sqlConfig.spark.sql.shuffleDependency.skipMigration.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.ai.remoteFunction.grpc.richArguments.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.ai.partitionProcessor.globalMaxInFlightElements\":\"10240\",\"sqlConfig.spark.databricks.sql.ai.remoteFunction.grpc.initialRetryInterval\":\"100\",\"sqlConfig.spark.databricks.ai.adaptiveBatch.partitionJitterEnabled\":\"true\",\"sqlConfig.spark.sql.photon.skipIndexForTextSearch.indexingBitmapAndAgg.enabled\":\"true\",\"sqlConfig.spark.sql.streaming.stopTimeout\":\"15s\",\"sqlConfig.spark.databricks.sql.functions.aiQuery.openAI.oSeries.model.list\":\"o1-mini,o1,o3-mini,o3,o4-mini,gpt-5,gpt-5-mini,gpt-5-nano,GPT-5,GPT-5 Mini,GPT-5 Nano\",\"sqlConfig.spark.sql.skipIndexForTextSearch.incremental.maxBytesThreshold\":\"1099511627776\",\"sqlConfig.spark.sql.functions.remoteHttpClient.redirectLogging.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.vectorSearch.retryIntervalMultiplierFactor\":\"2.0\",\"sqlConfig.spark.sql.copyInto.timeout.threadDump.enabled\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiForecastV2.modelPath\":\"/Volumes/system/__internal_ai/ai_forecast_volume/forecaster_v7\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.remoteHttpClient.timeoutInSeconds\":\"360\",\"sqlConfig.spark.sql.skipIndexForTextSearch.v2.enabled\":\"true\",\"sqlConfig.spark.databricks.docingest.batchEval.size\":\"8\",\"referredTempViewNames\":\"[]\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.vectorSearch.maxRetryInterval\":\"120000\",\"sqlConfig.spark.sql.photon.skipIndexForTextSearch.indexingBitmapAgg.forceSerializedOutput\":\"false\",\"sqlConfig.spark.sql.vectorIndex.optimization.enabledForCommands\":\"true\",\"sqlConfig.spark.sql.ansi.enforceAnsiTypeCoercion\":\"true\",\"sqlConfig.spark.sql.legacy.blockCreateTempTableUsingProvider\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.enabled\":\"true\",\"sqlConfig.spark.sql.legacy.codingErrorAction\":\"true\",\"sqlConfig.spark.databricks.sql.ai.remoteFunction.hermes.extendedTypeConversion.enabled\":\"true\",\"sqlConfig.spark.sql.cte.recursion.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.scaleUpThresholdCurrentQpsIncreaseRatio\":\"0.0\",\"sqlConfig.spark.databricks.ai.adaptiveBatch.maxRetries\":\"30\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.hermes.aiQuery.files.enabled\":\"true\",\"sqlConfig.spark.sql.legacy.observeMetricsAggregateAllAttempts\":\"true\",\"sqlConfig.spark.sql.secondaryIndex.rowIdWatermark.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.hermes.errorTemplate.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.scaleUpThresholdTotalQpsIncreaseRatio\":\"0.0\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.multiModality.model.list\":\"databricks-llama-4-maverick,databricks-claude-sonnet-4,databricks-claude-3-7-sonnet,databricks-gemma-3-12b,databricks-gpt-5,databricks-gpt-5-mini,databricks-gpt-5-nano,databricks-gpt-5-1,databricks-gpt-5-2,databricks-gemini-2-5-flash,databricks-gemini-2-5-pro,databricks-gemini-3-flash,databricks-gemini-3-pro,databricks-claude-haiku-4-5\",\"catalogAndNamespace.part.1\":\"default\",\"sqlConfig.spark.sql.insertIntoReplaceUsing.oldDPOCodePath.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.useDedicatedHttpClient\":\"true\",\"sqlConfig.spark.sql.defaultStorage.useDefaultStorageForCreateCatalogWithoutLocation.enabled\":\"true\",\"sqlConfig.spark.sql.variable.substitute\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.useGrpcForSessionManagement\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiForecast.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.threadKeepAliveTimeInSeconds\":\"600\",\"sqlConfig.spark.databricks.sql.expression.aiFunctions.repartition\":\"0\",\"sqlConfig.spark.sql.variant.writeShredding.enabled\":\"true\",\"sqlConfig.spark.sql.variant.pushVariantIntoScan.deferCastError\":\"true\",\"sqlConfig.spark.sql.timestampNanosTypes.enabled\":\"false\",\"sqlConfig.spark.sql.analyzer.dontDeduplicateExpressionIfExprIdInOutput\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.useDynamicTaskQueueExecutor\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.hermesEnabledFunctions\":\"ai_classify,ai_extract,ai_prep_search,ai_parse_document,ai_search,ai_query,ai_mask,ai_enrich,ai_transcribe,ai_summarize,ai_fix_grammar,ai_analyze_sentiment,ai_translate,ai_decide\",\"sqlConfig.spark.sql.searchIndex.alterColumnSyntax.enabled\":\"true\",\"sqlConfig.spark.sql.timeType.enabled\":\"true\",\"sqlConfig.spark.sql.skipIndexForTextSearch.optimizeSubstringExpressions\":\"true\",\"sqlConfig.spark.databricks.docingest.pdf.drawFlags\":\"USE_ANNOT_FACES\",\"sqlConfig.spark.databricks.sql.functions.aiForecastV2.enabled\":\"true\",\"sqlConfig.spark.sql.sources.default\":\"delta\",\"sqlConfig.spark.sql.parquet.datetimeRebaseModeInWrite\":\"LEGACY\",\"sqlConfig.spark.sql.hive.convertCTAS\":\"true\",\"sqlConfig.spark.sql.artifact.isolation.enabled\":\"false\",\"sqlConfig.spark.databricks.sql.functions.vectorSearch.enabled\":\"true\",\"sqlConfig.spark.sql.sqlgateway.retryFailFastModeEnabled\":\"true\",\"sqlConfig.spark.sql.sqlgateway.retry.stateChangingCommands.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.safe.inference.enabled\":\"true\",\"sqlConfig.spark.sql.pivot.emptyBucketReturnsAggregateDefault\":\"false\",\"sqlConfig.spark.sql.excel.streaming.enabled\":\"true\",\"sqlConfig.spark.sql.searchIndex.clusterBy.generalization.enabled\":\"true\",\"sqlConfig.spark.sql.scripting.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.batch.aiQuery.embedding.request.size\":\"40\",\"sqlConfig.spark.sql.datetime.java8API.enabled\":\"true\",\"sqlConfig.spark.sql.columnVector.offheap.enabled\":\"true\",\"referredTempVariableNames\":\"[]\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.batch.execution.size\":\"2048\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.vectorSearch.initialRetryIntervalMillis\":\"1000\",\"sqlConfig.spark.sql.skipIndexForTextSearch.patternBucketCount\":\"524288\",\"sqlConfig.spark.databricks.sql.ai.partitionProcessor.aimdLimiter.max\":\"200\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.multiModality.useCapabilitiesApi\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.createBatchSessionOnExecutor\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.hermes.aiQuery.failOnError.enabled\":\"true\",\"sqlConfig.spark.databricks.docingest.pagination.concurrency\":\"1\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.maxPoolSize\":\"2048\",\"function.resolutionPath\":\"[[\\\"system\\\",\\\"builtin\\\"],[\\\"system\\\",\\\"ai\\\"],[\\\"workspace\\\",\\\"default\\\"]]\",\"sqlConfig.spark.sql.thriftServer.interruptOnCancel\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.clusterSizeBasedGlobalParallelism.scaleFactor\":\"512.0\",\"sqlConfig.spark.databricks.sql.functions.aiGen.endpointName\":\"databricks-meta-llama-3-3-70b-instruct\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.embeddingsEndpointName\":\"databricks-gte-large-en\",\"sqlConfig.spark.thriftserver.cloudStoreBasedRowSet.arrowRowLevelByteTrimming\":\"false\",\"sqlConfig.spark.databricks.sql.ai.partitionProcessor.maxBufferedResults\":\"512\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.batchSession.enabled\":\"true\",\"sqlConfig.spark.sql.functions.remoteHttpClient.retryOnSocketTimeoutException\":\"true\",\"sqlConfig.spark.sql.sources.commitProtocolClass\":\"com.databricks.sql.transaction.directory.DirectoryAtomicCommitProtocol\",\"sqlConfig.spark.sql.functions.remoteHttpClient.retryOn400TimeoutError\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.batch.execution.enabled\":\"true\",\"sqlConfig.spark.sql.skipIndexForTextSearch.rowsBatchSize\":\"32\",\"sqlConfig.spark.databricks.sql.functions.vectorSearch.use.indexIdentifierOnly\":\"true\",\"sqlConfig.spark.sql.streaming.checkpoint.fileChecksum.enabled\":\"false\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.purposeBuiltFunctions.batch.execution.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.registry.enabled\":\"true\",\"sqlConfig.spark.sql.sqlgateway.retry.readyOnlyCommands.v2.enabled\":\"true\",\"catalogAndNamespace.numParts\":\"2\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.adaptiveThreadPool.scaleUpThresholdSuccessRatio\":\"0.95\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.aclValidateAllFunctions\":\"true\",\"sqlConfig.spark.sql.vectorIndex.optimization.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.ai.remoteFunction.grpc.retryIntervalJitterFactor\":\"1.0\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.modelEndpointTypeParsing.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.hermes.aiQuery.legacyFallbackOnUnexpectedError.enabled\":\"false\",\"sqlConfig.spark.databricks.sql.ai.hermes.embeddingBatch.enabled\":\"true\",\"sqlConfig.spark.sql.insertIntoReplaceUsing.disallowMisalignedColumns.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.rowColumnAccess.useEffectivePolicies.enabled\":\"true\",\"sqlConfig.spark.sql.searchIndex.clusterBy.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiQuery.ucModelService.enabled\":\"true\",\"sqlConfig.spark.databricks.ai.grpc.sync.retriableStatusCodes\":\"UNAVAILABLE,RESOURCE_EXHAUSTED,DEADLINE_EXCEEDED,ABORTED,CANCELLED\",\"sqlConfig.spark.sql.decfloatType.enabled\":\"false\",\"sqlConfig.spark.sql.thriftServer.queryTimeout\":\"0\",\"sqlConfig.spark.sql.secondaryIndex.standardSortWithinFiles.enabled\":\"true\",\"sqlConfig.spark.sql.thriftserver.scheduler.pool\":\"thriftserver-session-01f1e601-4da3-117f-b932-22813b85dbaf\",\"sqlConfig.spark.sql.fileType.enabled\":\"true\",\"sqlConfig.spark.sql.vectorIndex.numCentroidsScalingFactor\":\"4\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.batchInferenceApi.enabled\":\"true\",\"sqlConfig.spark.sql.secondaryIndex.manualRefresh.disabled\":\"true\",\"sqlConfig.spark.sql.secondaryIndex.asyncCreation.enabled\":\"false\",\"sqlConfig.spark.sql.variant.pushVariantIntoScan\":\"true\",\"sqlConfig.spark.sql.artifact.includeClusterScopedJars\":\"false\",\"sqlConfig.spark.sql.parquet.compression.codec\":\"snappy\",\"sqlConfig.spark.databricks.docingest.maxDocumentPages\":\"1000\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.model.parameters.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.ai.partitionProcessor.aimdLimiter.enabled\":\"true\",\"sqlConfig.spark.sql.parquet.datetimeRebaseModeInRead\":\"LEGACY\",\"sqlConfig.spark.sql.orc.compression.codec\":\"snappy\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.hermes.partitionProcessorConf.enabled\":\"true\",\"sqlConfig.spark.sql.avro.datetimeRebaseModeInWrite\":\"LEGACY\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.disabled\":\"false\",\"sqlConfig.spark.databricks.sql.functions.vectorSearch.byEmbeddingVector.enabled\":\"false\",\"sqlConfig.runtime.databricks.sql.functions.counter_diff.enabled\":\"true\",\"sqlConfig.spark.sql.skipIndexForTextSearch.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.hermes.aiQuery.directBuilder.enabled\":\"true\",\"sqlConfig.runtime.databricks.sql.functions.time_bucket.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.ai.remoteFunction.grpc.maxRetryInterval\":\"10000\",\"sqlConfig.spark.databricks.ai.adaptiveBatch.initialSize\":\"4\",\"sqlConfig.spark.databricks.sql.functions.aiDetectAnomalies.enabled\":\"true\",\"sqlConfig.spark.sql.ansi.enforceReservedKeywords\":\"false\",\"sqlConfig.spark.sql.path.enabled\":\"true\",\"sqlConfig.spark.databricks.sql.ai.partitionProcessor.maxInFlightElements\":\"200\",\"sqlConfig.spark.sql.scripting.maxNumberOfLines\":\"30000\",\"sqlConfig.spark.databricks.sql.functions.aiFunctions.scalingReasonLogging.enabled\":\"true\",\"sqlConfig.spark.databricks.ai.adaptiveBatch.retryMaxDelayMs\":\"120000\",\"sqlConfig.spark.databricks.docingest.contentElementTypes.excluded\":\"\"}",
+  "return_params": {
+    "parameters": [
+      {
+        "name": "nearest_rank",
+        "parameter_type": "COLUMN",
+        "position": 0,
+        "type_json": "{\"name\":\"nearest_rank\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "INT",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "int"
+      },
+      {
+        "name": "facility_name",
+        "parameter_type": "COLUMN",
+        "position": 1,
+        "type_json": "{\"name\":\"facility_name\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "full_address",
+        "parameter_type": "COLUMN",
+        "position": 2,
+        "type_json": "{\"name\":\"full_address\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "distance_km",
+        "parameter_type": "COLUMN",
+        "position": 3,
+        "type_json": "{\"name\":\"distance_km\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "DOUBLE",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "double"
+      },
+      {
+        "name": "distance_label",
+        "parameter_type": "COLUMN",
+        "position": 4,
+        "type_json": "{\"name\":\"distance_label\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "evidence_strength",
+        "parameter_type": "COLUMN",
+        "position": 5,
+        "type_json": "{\"name\":\"evidence_strength\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "INT",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "int"
+      },
+      {
+        "name": "strength_label",
+        "parameter_type": "COLUMN",
+        "position": 6,
+        "type_json": "{\"name\":\"strength_label\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "strength_breakdown",
+        "parameter_type": "COLUMN",
+        "position": 7,
+        "type_json": "{\"name\":\"strength_breakdown\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "evidence_fields",
+        "parameter_type": "COLUMN",
+        "position": 8,
+        "type_json": "{\"name\":\"evidence_fields\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "evidence_quote",
+        "parameter_type": "COLUMN",
+        "position": 9,
+        "type_json": "{\"name\":\"evidence_quote\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "why_this",
+        "parameter_type": "COLUMN",
+        "position": 10,
+        "type_json": "{\"name\":\"why_this\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "caution_flags",
+        "parameter_type": "COLUMN",
+        "position": 11,
+        "type_json": "{\"name\":\"caution_flags\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "phone",
+        "parameter_type": "COLUMN",
+        "position": 12,
+        "type_json": "{\"name\":\"phone\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "website",
+        "parameter_type": "COLUMN",
+        "position": 13,
+        "type_json": "{\"name\":\"website\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "source_url",
+        "parameter_type": "COLUMN",
+        "position": 14,
+        "type_json": "{\"name\":\"source_url\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "availability_now",
+        "parameter_type": "COLUMN",
+        "position": 15,
+        "type_json": "{\"name\":\"availability_now\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "requested_service",
+        "parameter_type": "COLUMN",
+        "position": 16,
+        "type_json": "{\"name\":\"requested_service\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "origin_precision",
+        "parameter_type": "COLUMN",
+        "position": 17,
+        "type_json": "{\"name\":\"origin_precision\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "latitude",
+        "parameter_type": "COLUMN",
+        "position": 18,
+        "type_json": "{\"name\":\"latitude\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "DOUBLE",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "double"
+      },
+      {
+        "name": "longitude",
+        "parameter_type": "COLUMN",
+        "position": 19,
+        "type_json": "{\"name\":\"longitude\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "DOUBLE",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "double"
+      },
+      {
+        "name": "facility_id",
+        "parameter_type": "COLUMN",
+        "position": 20,
+        "type_json": "{\"name\":\"facility_id\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      },
+      {
+        "name": "source_record_id",
+        "parameter_type": "COLUMN",
+        "position": 21,
+        "type_json": "{\"name\":\"source_record_id\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}",
+        "type_name": "STRING",
+        "type_precision": 0,
+        "type_scale": 0,
+        "type_text": "string"
+      }
+    ]
+  },
+  "routine_body": "SQL",
+  "routine_definition": "WITH sel AS (\n  SELECT max(CASE WHEN is_selected THEN service END) AS service FROM workspace.carematch.suggest_services(service_text)\n),\nloc AS (\n  SELECT * FROM workspace.carematch.resolve_location_v2(location_text)\n),\nco AS (\n  SELECT lat, lon, coalesce(lat BETWEEN 6 AND 37.5 AND lon BETWEEN 68 AND 97.5, false) AS ok\n  FROM (\n    SELECT\n      try_cast(regexp_extract(x, '^(-?[0-9]+([.][0-9]+)?)[ ]*[,; ][ ]*(-?[0-9]+([.][0-9]+)?)$', 1) AS DOUBLE) AS lat,\n      try_cast(regexp_extract(x, '^(-?[0-9]+([.][0-9]+)?)[ ]*[,; ][ ]*(-?[0-9]+([.][0-9]+)?)$', 3) AS DOUBLE) AS lon\n    FROM (SELECT trim(coalesce(coordinates_text, '')) AS x)\n  )\n),\norigin AS (\n  SELECT\n    CASE WHEN co.ok THEN co.lat ELSE loc.origin_latitude END AS o_lat,\n    CASE WHEN co.ok THEN co.lon ELSE loc.origin_longitude END AS o_lon,\n    CASE WHEN co.ok THEN 'your coordinates' ELSE concat('the approximate centre of ', loc.place_label) END AS o_label,\n    CASE WHEN co.ok THEN 'Exact (entered coordinates)' ELSE loc.origin_precision END AS o_precision\n  FROM co CROSS JOIN loc\n),\ncand AS (\n  SELECT c.facility_id, c.source_record_id, c.facility_name, c.requested_service, c.latitude, c.longitude,\n    CASE WHEN cv.quote_found THEN cv.quote ELSE c.evidence_quote END AS evidence_quote, c.source_url, c.availability_now,\n    d.full_address, d.phone, d.website,\n    st.evidence_strength, st.strength_label, st.strength_breakdown, st.evidence_fields,\n    concat_ws('; ', nullif(c.evidence_flags, ''), nullif(c.identity_flags, ''), d.address_flag, CASE WHEN cv.status = 'unclear' THEN 'AI check: text does not clearly confirm this service' END) AS caution_flags,\n    o.o_label, o.o_precision,\n    2 * 6371 * asin(sqrt(least(1.0,\n      pow(sin(radians(c.latitude - o.o_lat) / 2), 2)\n      + cos(radians(o.o_lat)) * cos(radians(c.latitude)) * pow(sin(radians(c.longitude - o.o_lon) / 2), 2)))) AS dist\n  FROM workspace.carematch.service_candidates c\n  CROSS JOIN sel\n  CROSS JOIN origin o\n  LEFT JOIN workspace.carematch.facility_details d ON d.source_record_id = c.source_record_id\n  LEFT JOIN workspace.carematch.candidate_strength st ON st.source_record_id = c.source_record_id AND st.requested_service = c.requested_service\n  LEFT JOIN workspace.carematch.candidate_verification cv ON cv.source_record_id = c.source_record_id AND cv.requested_service = c.requested_service\n  WHERE c.requested_service = sel.service\n    AND coalesce(cv.status, 'offered') NOT IN ('not_offered', 'planned')\n    AND o.o_lat IS NOT NULL\n    AND c.latitude BETWEEN 6 AND 37.5 AND c.longitude BETWEEN 68 AND 97.5\n),\nranked AS (\n  SELECT *, CAST(row_number() OVER (ORDER BY dist, facility_name) AS INT) AS rk FROM cand\n)\nSELECT\n  rk, facility_name, full_address, round(dist, 1),\n  concat(format_number(dist, 1), ' km straight-line (not road distance)'),\n  coalesce(evidence_strength, 0), coalesce(strength_label, 'Weak text evidence'), coalesce(strength_breakdown, ''),\n  evidence_fields, evidence_quote,\n  concat('#', rk, ' nearest: ', format_number(dist, 1), ' km straight-line from ', o_label, '. ',\n    'Evidence ', coalesce(evidence_strength, 0), '/5 (', coalesce(strength_label, 'Weak text evidence'), '): ',\n    coalesce(nullif(strength_breakdown, ''), 'no supporting field details'), '. ',\n    CASE WHEN caution_flags \u003c\u003e '' THEN concat('Caution: ', caution_flags, '. ') ELSE '' END,\n    'Text match, not verified. Call ahead to confirm.'),\n  caution_flags, phone, website, source_url, availability_now, requested_service, o_precision,\n  latitude, longitude, facility_id, source_record_id\nFROM ranked\nWHERE rk \u003c= 20",
+  "schema_name": "carematch",
+  "security_type": "DEFINER",
+  "specific_name": "find_care",
+  "sql_data_access": "READS_SQL_DATA",
+  "updated_at": 1795325031428,
+  "updated_by": "fikhsan@andrew.cmu.edu"
+}
