@@ -141,6 +141,9 @@
   details { border:1px solid var(--line); border-radius:10px; padding:6px 10px; margin-top:6px; font-size:13px; }
   details summary { cursor:pointer; font-weight:600; }
   details li.hit { color:#15803d; font-weight:600; }
+  details li.qhit { background:#fce5dd; border-radius:4px; }
+  .lsearch { width:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:999px; padding:8px 14px; font:14px inherit; font-family:inherit; margin:2px 0 4px; background:#fff; outline:none; }
+  .lsearch:focus { border-color:var(--brand); }
   .small { font-size:12px; color:var(--muted); }
   /* map pins */
   .pill { background:#fff; color:var(--ink); border-radius:999px; padding:5px 12px; font:800 14px "Inter","Source Sans Pro",sans-serif; border-width:2.5px !important;
@@ -312,7 +315,7 @@ function toggleRegions() {
     if (on) l.eachLayer(x => x.setStyle({ fillOpacity: fill ? x.options.fillOpacity : 0.0, interactive: true }));
   });
   if (showS && !map.hasLayer(stateLabels)) stateLabels.addTo(map); if (!showS) map.removeLayer(stateLabels);
-  if (showD && !map.hasLayer(distLabels)) distLabels.addTo(map); if (!showD) map.removeLayer(distLabels);
+  if (map.hasLayer(distLabels)) map.removeLayer(distLabels);  // district names: hover tooltip only (too crowded)
   setTimeout(sizeLabels, 0); fadeTiles();
   // The outside-India fade is only for the overview: zoomed in, overlapping border shapes draw as black wedges.
   if (maskLayer) { const m = z <= 7; if (m && !map.hasLayer(maskLayer)) maskLayer.addTo(map); if (!m && map.hasLayer(maskLayer)) map.removeLayer(maskLayer); }
@@ -468,8 +471,9 @@ function optsTable(cur) {
 function detail(r) {
   const d = S.detail && S.detail.id === r.id ? S.detail : null;
   const hitRe = S.terms ? new RegExp(S.terms, "i") : null;
-  const road = d && d.route ? [[d.route.km.toFixed(0) + " km", "by road"], ["~" + d.route.min.toFixed(0) + " min", "drive, no traffic"]] : [["n/a", "road route unavailable"]];
-  const facts = [[r.km.toFixed(1) + " km", "straight-line"], ...road, [r.ev + "/5", "text evidence"]];
+  const road = d && d.route ? [d.route.km.toFixed(0) + " km (" + d.route.min.toFixed(0) + " min)", "by road, no traffic"]
+    : d ? ["~" + r.km.toFixed(1) + " km", "straight-line (road route unavailable)"] : ["...", "finding the road route"];
+  const facts = [road, [r.ev + "/5", "evidence score"]];
   return "<button class='back' id='back'>&larr; All results</button>" +
     "<div class='small'>#" + r.rank + " of " + S.results.length + "</div><div class='dname'>" + esc(r.name) + "</div>" +
     "<div class='small'>" + esc(r.address || "Address not listed") + "</div>" +
@@ -481,7 +485,7 @@ function detail(r) {
     (r.caution ? "<div class='sect'><span class='chip warn'>Caution</span> <span class='small'>" + esc(r.caution) + "</span></div>" : "") +
     "<div class='sect'><h4>Key quote from the record</h4>" + (r.quote ? "<blockquote>\"" + esc(r.quote) + "\"" + (r.source ? " <a target='_blank' rel='noopener' href='" + esc(r.source) + "'>source</a>" : "") + "</blockquote>" : "<div class='small'>No quote available.</div>") + "</div>" +
     "<div class='sect'><h4>Evidence checklist</h4>" + checklist(r, d, hitRe) + "</div>" +
-    "<div class='sect'><h4>Everything the record lists</h4>" + (d ? list(d.specialties, "Specialties", hitRe) + list(d.procedures, "Procedures", hitRe) + list(d.equipment, "Equipment", hitRe)
+    "<div class='sect'><h4>Everything the record lists</h4>" + (d ? "<input class='lsearch' id='lsearch' placeholder='Search the lists, e.g. dialysis, ICU, ventilator' autocomplete='off'><div class='small' id='lcount'></div><div id='reclists'>" + list(d.specialties, "Specialties", hitRe) + list(d.procedures, "Procedures", hitRe) + list(d.equipment, "Equipment", hitRe) + "</div>"
       : "<div class='small'>Loading details...</div>") + "</div>" +
     "<div class='sect'><h4>All nearby options</h4>" + optsTable(r.id) + "</div>" +
     "<div class='sect small'>Text from the facility's own record, not verified availability. Call ahead to confirm.</div>";
@@ -496,6 +500,16 @@ function renderLeft() {
   if (r) {
     left.innerHTML = detail(r); left.scrollTop = 0;
     document.getElementById("back").onclick = () => { detailId = null; renderLeft(); };
+    const ls = document.getElementById("lsearch");
+    if (ls) ls.oninput = () => {
+      const q = ls.value.trim().toLowerCase(); let total = 0;
+      left.querySelectorAll("#reclists details").forEach(dt => {
+        let n = 0;
+        dt.querySelectorAll("li").forEach(li => { const ok = !q || li.textContent.toLowerCase().includes(q); li.style.display = ok ? "" : "none"; li.classList.toggle("qhit", !!q && ok); if (ok) n++; });
+        if (q) { dt.open = n > 0; dt.style.opacity = n ? 1 : .45; total += n; } else { dt.open = false; dt.style.opacity = 1; }
+      });
+      document.getElementById("lcount").textContent = q ? (total ? total + " match" + (total > 1 ? "es" : "") : "No matches for \"" + ls.value.trim() + "\"") : "";
+    };
     left.querySelectorAll("tr.o").forEach(tr => tr.onclick = () => { if (tr.dataset.id !== r.id) select(tr.dataset.id); });
   } else {
     left.innerHTML = "<h2>" + esc(S.title) + "</h2><div class='sub'>" + esc(S.subtitle || "") + "</div><div class='grid'>" + res.map(card).join("") + "</div>";
