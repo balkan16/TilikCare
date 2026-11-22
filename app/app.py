@@ -723,7 +723,7 @@ if service_text:
         chosen_service = override or (auto["service"].iloc[0] if not auto.empty else None)
         chosen_row = valid[valid["service"] == chosen_service]
         method = chosen_row["method"].iloc[0] if not chosen_row.empty else ""
-        read = {"chosen": chosen_service,
+        read = {"chosen": chosen_service, "ref": SERVICE_REFS.get(chosen_service),
                 "method": ("chosen by you" if override else
                            "matched by name" if "name" in str(method).lower() else
                            "matched by meaning" if "meaning" in str(method).lower() or "embedding" in str(method).lower() else
